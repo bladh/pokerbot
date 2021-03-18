@@ -26,6 +26,8 @@ public class IrcBot extends PircBot {
    * set of administrators by hostname
    */
   private final Set<String> admins = new HashSet<>();
+  private final TableConfig tableConfig = new TableConfig(Constants.START_MONEY, Constants.FORCED_BET_BLINDS,
+          Constants.BIG_BLIND_AMOUNT, Constants.ANTE);
   private Roster roster;
 
   public IrcBot(String startingChannel) {
@@ -36,7 +38,7 @@ public class IrcBot extends PircBot {
     }
     tables = new HashMap<>();
     final IrcStateCallback startingCallback = new IrcStateCallback(startingChannel);
-    tables.put(startingChannel, new Table(startingCallback, roster));
+    tables.put(startingChannel, new Table(startingCallback, roster, tableConfig));
 
     setName(Constants.BOT_NAME);
     setAutoNickChange(true);
@@ -295,7 +297,7 @@ public class IrcBot extends PircBot {
           break;
         }
         final IrcStateCallback callback = new IrcStateCallback(newChannel);
-        tables.put(newChannel, new Table(callback, roster));
+        tables.put(newChannel, new Table(callback, roster, tableConfig));
         if (split.length > 2) {
           joinChannel(newChannel, split[2]);
         } else {

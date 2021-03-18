@@ -8,14 +8,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Table {
-  // todo: make this changeable
-  private final int forcedBetType = Constants.FORCED_BET_BLINDS;
   private final StateCallback callback;
   private final List<Player> players = new ArrayList<>();
   private final Queue<Card> deck = new ArrayDeque<>(52);
   private final List<Card> table = new ArrayList<>(5);
   private final Queue<String> buyInPlayers = new ArrayDeque<>();
   private final Roster roster;
+  private final TableConfig config;
 
   private Calendar lastActivity = null;
   private boolean gameInProgress = false;
@@ -24,10 +23,11 @@ public class Table {
   private int startPlayer;
   private Pot mainPot;
 
-  public Table(StateCallback callback, Roster roster) {
+  public Table(StateCallback callback, Roster roster, TableConfig config) {
     this.callback = callback;
     this.roster = roster;
     this.mainPot = new Pot();
+    this.config = config;
   }
 
   private boolean verifyCurrentPlayer(Player player) {
@@ -162,7 +162,7 @@ public class Table {
     setActivity();
     player.cashout();
     callback.playerCashedOut(player.getName(), player.getMoney());
-    roster.modifyMoney(player.getName(), player.getMoney() - Constants.START_MONEY);
+    roster.modifyMoney(player.getName(), player.getMoney() - config.startingMoney);
     final boolean nextTurn = !checkForWinByFold();
     if (nextTurn) {
       nextTurn();
@@ -186,15 +186,9 @@ public class Table {
         return false;
       }
     }
-    final boolean added = players.add(new Player(name));
-    if (verbose) {
-      if (added) {
-        callback.announce(name + " has joined the game.");
-      } else {
-        callback.announce("Could not add " + name + " to the game");
-      }
-    }
-    return added;
+    players.add(new Player(name));
+    callback.announce(name + " has joined the game.");
+    return true;
   }
 
   private void deal() {
@@ -211,7 +205,7 @@ public class Table {
       player.setAllIn(false);
       if (player.isBroke()) {
         player.cashout();
-        roster.modifyMoney(player.getName(), -Constants.START_MONEY);
+        roster.modifyMoney(player.getName(), -config.startingMoney);
       }
     }
 
@@ -283,7 +277,7 @@ public class Table {
   private void nextTurn() {
     mainPot.newTurn();
     final Player player = getCurrentPlayer();
-    if (isEveryoneAllin() || turnIndex == lastIndex && (player.isFolded() || player.isBroke() || mainPot.getTotalOwed(player) == 0)) {
+    if (isEveryoneAllin() || turnIndex == lastIndex && (player.isFolded() || player.isBroke() || mainPot.playerCleared(player))) {
 
       if (table.size() == 5) {
         // winner selection
@@ -396,23 +390,27 @@ public class Table {
   }
 
   private void collectForcedBets() {
-    if (forcedBetType == Constants.FORCED_BET_ANTE) {
+    if (config.forcedBetType == Constants.FORCED_BET_ANTE) {
       callback.collectAnte(Constants.ANTE);
 
       for (Player player : players) {
         mainPot.collectAnte(player, Constants.ANTE);
       }
-    } else if (forcedBetType == Constants.FORCED_BET_BLINDS) {
+    } else if (config.forcedBetType == Constants.FORCED_BET_BLINDS) {
+      final int oldTurnIndex = turnIndex;
+      final int oldLastIndex = lastIndex;
       final int blindPlayer = turnIndex;
       final Player smallBlindPlayer = players.get(turnIndex);
-      final int smallBlind = mainPot.collectSmallBlind(smallBlindPlayer, Constants.BIG_BLIND_AMOUNT);
+      final int smallBlind = mainPot.collectSmallBlind(smallBlindPlayer, config.bigBlind);
       lastIndex = lastUnfolded(turnIndex - 1);
       turnIndex = wrappedIncrement(turnIndex);
       final Player bigBlindPlayer = players.get(wrappedIncrement(blindPlayer));
-      final int bigBlind = mainPot.collectBigBlind(bigBlindPlayer, Constants.BIG_BLIND_AMOUNT);
+      final int bigBlind = mainPot.collectBigBlind(bigBlindPlayer, config.bigBlind);
       lastIndex = lastUnfolded(turnIndex - 1);
       turnIndex = wrappedIncrement(turnIndex);
       callback.collectBlinds(bigBlindPlayer.getName(), bigBlind, smallBlindPlayer.getName(), smallBlind);
+      turnIndex = oldTurnIndex;
+      lastIndex = oldLastIndex;
     }
   }
 
@@ -444,12 +442,12 @@ public class Table {
     gameInProgress = false;
     if (players.size() == 1) {
       final Player winner = players.get(0);
-      roster.modifyMoney(winner.getName(), winner.getMoney() - Constants.START_MONEY);
+      roster.modifyMoney(winner.getName(), winner.getMoney() - config.startingMoney);
     } else {
       int highscore = 0;
       for (Player player: players) {
         final int playerMoney = player.getMoney();
-        roster.modifyMoney(player.getName(), playerMoney - Constants.START_MONEY);
+        roster.modifyMoney(player.getName(), playerMoney - config.startingMoney);
         if (playerMoney > highscore) {
           highscore = playerMoney;
         }

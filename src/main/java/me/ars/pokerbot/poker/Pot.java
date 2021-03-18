@@ -267,4 +267,11 @@ public class Pot {
             winner.win(winnings);
         }
     }
+
+    /**
+     * Returns true if the player does not owe anything to the pot.
+     */
+    public boolean playerCleared(Player player) {
+        return getTotalOwed(player) == 0;
+    }
 }

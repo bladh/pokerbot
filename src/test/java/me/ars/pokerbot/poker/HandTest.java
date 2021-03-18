@@ -330,7 +330,6 @@ public class HandTest {
     Assert.assertEquals(referenceHand, hand2);
   }
 
-  @Test
   public void smokeTest() {
     final Card[] deck = Card.getDeck();
     final int n = deck.length;

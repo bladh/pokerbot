@@ -1,5 +1,6 @@
 package me.ars.pokerbot.poker;
 
+import me.ars.pokerbot.Constants;
 import me.ars.pokerbot.stats.Roster;
 import org.junit.Assert;
 import org.junit.Before;
@@ -13,21 +14,28 @@ import static org.mockito.ArgumentMatchers.*;
 
 public class TableTest {
 
+  private final TableConfig tableConfig = new TableConfig(Constants.START_MONEY, Constants.FORCED_BET_BLINDS,
+          Constants.BIG_BLIND_AMOUNT, Constants.ANTE);
   private Table table;
   private StateCallback callback;
   private Roster roster;
+
+  private TableConfig anteConfig() {
+    return new TableConfig(Constants.START_MONEY, Constants.FORCED_BET_ANTE,
+            Constants.BIG_BLIND_AMOUNT, Constants.ANTE);
+  }
 
   @Before
   public void before() {
     callback = Mockito.mock(StateCallback.class);
     roster = Mockito.mock(Roster.class);
-    table = new Table(callback, roster);
+    table = new Table(callback, roster, tableConfig);
   }
 
   @Test
-  public void shortGame() {
+  public void shortGameWithAnte() {
     // Simple smoke test to see if two players can check all the way to the end without anything crashing.
-
+    table = new Table(callback, roster, anteConfig());
     final Helper hadWinner = new Helper(false);
 
     Mockito.doAnswer(invocation -> {
@@ -71,18 +79,18 @@ public class TableTest {
     table.check(player2);
     table.check(player1);
     table.check(player2);
-    //Assert.assertTrue("The game must have had a winner", hadWinner.get());
+    Assert.assertTrue("The game must have had a winner", hadWinner.get());
   }
 
   @Test
-  public void testTurnOrder() {
+  public void testTurnOrderWithAnte() {
+    table = new Table(callback, roster, anteConfig());
     final String player1 = "player1";
     final String player2 = "player2";
     table.registerPlayer(player1);
     table.registerPlayer(player2);
     final Player p1 = table.getPlayer(player1);
     final Player p2 = table.getPlayer(player2);
-    /*
     table.startGame();
     Assert.assertEquals("The first joined player should be the first to play", p1, table.getCurrentPlayer());
     table.check(player1);
@@ -95,7 +103,26 @@ public class TableTest {
     Assert.assertEquals("It should be player 1's turn after player 2 has raised", p1, table.getCurrentPlayer());
     table.call(player1);
     Assert.assertEquals("It should be back to Player 1's turn", p1, table.getCurrentPlayer());
-     */
+  }
+
+  @Test
+  public void testTurnOrderWithBlinds() {
+    final String player1 = "player1";
+    final String player2 = "player2";
+    table.registerPlayer(player1);
+    table.registerPlayer(player2);
+    final Player p1 = table.getPlayer(player1);
+    final Player p2 = table.getPlayer(player2);
+    table.startGame();
+    Assert.assertEquals("The first joined player should be the first to play", p1, table.getCurrentPlayer());
+    table.check(player1);
+    Assert.assertEquals("Player 1 cannot check without calling the blind, it should still be player 1s turn",
+            p1, table.getCurrentPlayer());
+    table.call(player1);
+    Assert.assertEquals("After player 1 calls, it should be player 2", p2, table.getCurrentPlayer());
+    table.check(player2);
+    Assert.assertEquals("Player 2 should be able to check, and it should be back to player 1", p1,
+            table.getCurrentPlayer());
   }
 
   /**

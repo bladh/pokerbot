@@ -480,9 +480,8 @@ public class Table {
     if (last == null) return false;
 
     if (numPlayersLeft == 1) {
-      callback.announce(last.getName() + " wins (all other players folded)!");
-
-      int totalMoney = mainPot.getTotalMoney();
+      final int totalMoney = mainPot.getTotalMoney();
+      callback.declareWinner(last.getName(), null, totalMoney);
       last.win(totalMoney);
       setupHand();
       return true;

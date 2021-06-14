@@ -471,7 +471,13 @@ public class IrcBot extends PircBot {
 
     @Override
     public void declareWinner(String name, Hand winningHand, int pot) {
-      sendMessage(channel, renderNick(name) + " wins " + moneyString(pot) + " with the hand " + renderHand(winningHand) + "!");
+      final StringBuilder sb = new StringBuilder();
+      sb.append(renderNick(name)).append(" wins ").append(moneyString(pot));
+      if (winningHand != null) {
+        sb.append(" with the hand ").append(renderHand(winningHand));
+      }
+      sb.append("!");
+      sendMessage(channel, sb.toString());
     }
 
     @Override

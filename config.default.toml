@@ -1,0 +1,12 @@
+[irc]
+server = "irc.freenode.net"
+port = 6667
+nick = "PokerBot"
+channel = "#PokerBot"
+commandPrefix = "."
+verbose = true
+
+[game]
+startStash = 200
+ante = 0
+bigBlind = 5

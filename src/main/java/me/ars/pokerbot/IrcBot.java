@@ -1,6 +1,6 @@
 package me.ars.pokerbot;
 
-import me.ars.pokerbot.config.IrcBotConfig;
+import me.ars.pokerbot.config.BotConfig;
 import me.ars.pokerbot.poker.*;
 import me.ars.pokerbot.stats.Roster;
 import me.ars.pokerbot.stats.Stats;
@@ -28,9 +28,9 @@ public class IrcBot extends PircBot {
    */
   private final Set<String> admins = new HashSet<>();
   private Roster roster;
-  private final IrcBotConfig config;
+  private final BotConfig config;
 
-  public IrcBot(IrcBotConfig config) {
+  public IrcBot(BotConfig config) {
     try {
       roster = Roster.getRoster();
     } catch (IOException e) {

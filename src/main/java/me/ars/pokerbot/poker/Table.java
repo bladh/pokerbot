@@ -389,14 +389,14 @@ public class Table {
   }
 
   private void collectForcedBets() {
-    if (config.ante != null) {
+    if (config.ante != null && config.ante != 0) {
       callback.collectAnte(config.ante);
 
       for (Player player : players) {
         mainPot.collectAnte(player, config.ante);
       }
     }
-    if (config.bigBlind != null) {
+    if (config.bigBlind != null && config.bigBlind != 0) {
       final int oldTurnIndex = turnIndex;
       final int oldLastIndex = lastIndex;
       final int blindPlayer = turnIndex;

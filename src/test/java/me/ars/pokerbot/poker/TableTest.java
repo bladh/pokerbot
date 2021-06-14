@@ -22,6 +22,7 @@ public class TableTest {
   private GameConfig anteConfig() {
     final GameConfig conf = new GameConfig();
     conf.bigBlind = null;
+    conf.startStash = 200;
     conf.ante = 5;
     return conf;
   }
@@ -32,6 +33,7 @@ public class TableTest {
     roster = Mockito.mock(Roster.class);
     config = new GameConfig();
     config.startStash = 200;
+    config.bigBlind = 5;
     table = new Table(callback, roster, config);
   }
 

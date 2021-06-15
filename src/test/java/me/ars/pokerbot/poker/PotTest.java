@@ -22,9 +22,9 @@ public class PotTest {
 
   @Before
   public void setup() {
-    player1 = new Player("player1");
-    player2 = new Player("player2");
-    player3 = new Player("player3");
+    player1 = new Player("player1", 200);
+    player2 = new Player("player2", 200);
+    player3 = new Player("player3", 200);
   }
 
   @Test

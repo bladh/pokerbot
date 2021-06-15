@@ -11,7 +11,7 @@ import java.util.List;
 
 public class HandTest {
 
-  private final Player player = new Player("tester");
+  private final Player player = new Player("tester", 200);
 
   @Test
   public void testHighCard() {
@@ -305,7 +305,7 @@ public class HandTest {
     16:15 < Poker> Reveal: [player1 - 6♣, 2♥] [player2 - 2♣, 2♠]
     16:15 < Poker> player2 wins with the hand 3♦, Q♥, J♦, 8♥, 2♠ (one pair)!
      */
-    final Player player2 = new Player("player2");
+    final Player player2 = new Player("player2", 200);
     final Card card1 = new Card(8, Suit.HEARTS);
     final Card card2 = new Card(12, Suit.DIAMONDS);
     final Card card3 = new Card(3, Suit.DIAMONDS);

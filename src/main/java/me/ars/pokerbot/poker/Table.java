@@ -1,7 +1,7 @@
 package me.ars.pokerbot.poker;
 
-import me.ars.pokerbot.Constants;
 import me.ars.pokerbot.stats.Roster;
+import me.ars.pokerbot.config.GameConfig;
 
 import java.io.IOException;
 import java.util.*;
@@ -14,8 +14,7 @@ public class Table {
   private final List<Card> table = new ArrayList<>(5);
   private final Queue<String> buyInPlayers = new ArrayDeque<>();
   private final Roster roster;
-  private final TableConfig config;
-
+  private final GameConfig config;
   private Calendar lastActivity = null;
   private boolean gameInProgress = false;
   private int turnIndex;
@@ -23,11 +22,11 @@ public class Table {
   private int startPlayer;
   private Pot mainPot;
 
-  public Table(StateCallback callback, Roster roster, TableConfig config) {
+  public Table(StateCallback callback, Roster roster, GameConfig config) {
     this.callback = callback;
     this.roster = roster;
-    this.mainPot = new Pot();
     this.config = config;
+    this.mainPot = new Pot();
   }
 
   private boolean verifyCurrentPlayer(Player player) {
@@ -162,7 +161,7 @@ public class Table {
     setActivity();
     player.cashout();
     callback.playerCashedOut(player.getName(), player.getMoney());
-    roster.modifyMoney(player.getName(), player.getMoney() - config.startingMoney);
+    roster.modifyMoney(player.getName(), player.getMoney() - config.startStash);
     final boolean nextTurn = !checkForWinByFold();
     if (nextTurn) {
       nextTurn();
@@ -186,7 +185,7 @@ public class Table {
         return false;
       }
     }
-    players.add(new Player(name));
+    players.add(new Player(name, config.startStash));
     callback.announce(name + " has joined the game.");
     return true;
   }
@@ -205,7 +204,7 @@ public class Table {
       player.setAllIn(false);
       if (player.isBroke()) {
         player.cashout();
-        roster.modifyMoney(player.getName(), -config.startingMoney);
+        roster.modifyMoney(player.getName(), -config.startStash);
       }
     }
 
@@ -390,13 +389,14 @@ public class Table {
   }
 
   private void collectForcedBets() {
-    if (config.forcedBetType == Constants.FORCED_BET_ANTE) {
-      callback.collectAnte(Constants.ANTE);
+    if (config.ante != null && config.ante != 0) {
+      callback.collectAnte(config.ante);
 
       for (Player player : players) {
-        mainPot.collectAnte(player, Constants.ANTE);
+        mainPot.collectAnte(player, config.ante);
       }
-    } else if (config.forcedBetType == Constants.FORCED_BET_BLINDS) {
+    }
+    if (config.bigBlind != null && config.bigBlind != 0) {
       final int oldTurnIndex = turnIndex;
       final int oldLastIndex = lastIndex;
       final int blindPlayer = turnIndex;
@@ -442,12 +442,12 @@ public class Table {
     gameInProgress = false;
     if (players.size() == 1) {
       final Player winner = players.get(0);
-      roster.modifyMoney(winner.getName(), winner.getMoney() - config.startingMoney);
+      roster.modifyMoney(winner.getName(), winner.getMoney() - config.startStash);
     } else {
       int highscore = 0;
       for (Player player: players) {
         final int playerMoney = player.getMoney();
-        roster.modifyMoney(player.getName(), playerMoney - config.startingMoney);
+        roster.modifyMoney(player.getName(), playerMoney - config.startStash);
         if (playerMoney > highscore) {
           highscore = playerMoney;
         }

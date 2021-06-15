@@ -1,6 +1,6 @@
 package me.ars.pokerbot.poker;
 
-import me.ars.pokerbot.Constants;
+import me.ars.pokerbot.config.GameConfig;
 import me.ars.pokerbot.stats.Roster;
 import org.junit.Assert;
 import org.junit.Before;
@@ -14,22 +14,27 @@ import static org.mockito.ArgumentMatchers.*;
 
 public class TableTest {
 
-  private final TableConfig tableConfig = new TableConfig(Constants.START_MONEY, Constants.FORCED_BET_BLINDS,
-          Constants.BIG_BLIND_AMOUNT, Constants.ANTE);
   private Table table;
   private StateCallback callback;
   private Roster roster;
+  private GameConfig config;
 
-  private TableConfig anteConfig() {
-    return new TableConfig(Constants.START_MONEY, Constants.FORCED_BET_ANTE,
-            Constants.BIG_BLIND_AMOUNT, Constants.ANTE);
+  private GameConfig anteConfig() {
+    final GameConfig conf = new GameConfig();
+    conf.bigBlind = null;
+    conf.startStash = 200;
+    conf.ante = 5;
+    return conf;
   }
 
   @Before
   public void before() {
     callback = Mockito.mock(StateCallback.class);
     roster = Mockito.mock(Roster.class);
-    table = new Table(callback, roster, tableConfig);
+    config = new GameConfig();
+    config.startStash = 200;
+    config.bigBlind = 5;
+    table = new Table(callback, roster, config);
   }
 
   @Test

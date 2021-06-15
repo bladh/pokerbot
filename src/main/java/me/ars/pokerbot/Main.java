@@ -1,16 +1,17 @@
 package me.ars.pokerbot;
 
-import java.io.IOException;
-import java.io.File;
-
-import org.jibble.pircbot.IrcException;
-import org.jibble.pircbot.TrustingSSLSocketFactory;
-import com.moandjiezana.toml.Toml;
-
-import me.ars.pokerbot.config.BotConfig;
+import me.ars.pokerbot.poker.Player;
 
 public class Main {
     public static void main(String[] args) {
+        final Database database = new Database();
+        database.prepare();
+        final Player jocke = new Player("jocke", 200);
+        database.addNewPlayer(jocke, "derp");
+        System.out.println("...");
+        final Player a = database.getPlayer("jocke", "derp");
+        System.out.println("Got " + a.toString() + " from db");
+        /*
         final Toml defaults = new Toml().read(new File("config.default.toml"));
         final File configFile = new File("config.toml");
         if (!configFile.exists()) {
@@ -41,5 +42,6 @@ public class Main {
         } catch (IrcException | IOException e) {
             e.printStackTrace();
         }
+         */
     }
 }

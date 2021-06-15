@@ -21,3 +21,4 @@ bin/*
 
 roster.txt
 config.toml
+poker.db

@@ -451,8 +451,13 @@ public class IrcBot extends PircBot {
     }
 
     @Override
-    public void showPlayerCards(String name, Card card1, Card card2) {
-      sendMessage(name, "[" + channel + "] Your cards: " + renderCard(card1) + ", " + renderCard(card2));
+    public void showPlayerCards(String name, Card card1, Card card2, Card spyCard) {
+      final StringBuilder sb = new StringBuilder();
+      sb.append("[").append(channel).append("] Your cards: ").append(renderCard(card1)).append(", ").append(renderCard(card2));
+      if (spyCard != null) {
+        sb.append(". Spied card: ").append(renderCard(spyCard));
+      }
+      sendMessage(name, sb.toString());
     }
 
     @Override

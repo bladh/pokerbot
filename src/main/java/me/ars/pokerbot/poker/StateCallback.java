@@ -87,8 +87,9 @@ public interface StateCallback {
      * @param name  Name of player
      * @param card1 First card
      * @param card2 Second card
+     * @param spycard If playing with spycards
      */
-    void showPlayerCards(String name, Card card1, Card card2);
+    void showPlayerCards(String name, Card card1, Card card2, Card spycard);
 
     /**
      * Display the currently playing players and the money they have

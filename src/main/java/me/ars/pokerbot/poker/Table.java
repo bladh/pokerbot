@@ -190,12 +190,43 @@ public class Table {
     return true;
   }
 
+  private static Card pickRandomCard(Random random, Card... cards) {
+    return cards[random.nextInt(cards.length)];
+  }
+
+  private static <T> T getRandom(Random random, T... stuff) {
+    return stuff[random.nextInt(stuff.length)];
+  }
+
   private void deal() {
+    final boolean spyCards = config.spyCards != null && config.spyCards;
+    final Random random = new Random();
+    Player unlucky = null;
+    Card phony = null;
     for (Player player : players) {
       final Card card1 = deck.poll();
       final Card card2 = deck.poll();
-      callback.showPlayerCards(player.getName(), card1, card2);
       player.receiveCards(card1, card2);
+    }
+
+    if (spyCards) {
+      phony = deck.poll();
+      unlucky = players.get(random.nextInt(players.size()));
+    }
+    for (Player player : players) {
+      Card spyCard = null;
+      if (spyCards) {
+        if (player.equals(unlucky)) {
+          spyCard = phony;
+        } else {
+          Player randPlayer = player;
+          while (randPlayer.equals(player)) {
+            randPlayer = players.get(random.nextInt(players.size()));
+          }
+          spyCard = pickRandomCard(random, randPlayer.getCard1(), randPlayer.getCard2());
+        }
+      }
+      callback.showPlayerCards(player.getName(), player.getCard1(), player.getCard2(), spyCard);
     }
   }
 

@@ -10,3 +10,4 @@ verbose = true
 startStash = 200
 ante = 0
 bigBlind = 5
+spyCards = false

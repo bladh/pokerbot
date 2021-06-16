@@ -5,6 +5,9 @@ import me.ars.pokerbot.config.GameConfig;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Table {
@@ -15,6 +18,8 @@ public class Table {
   private final Queue<String> buyInPlayers = new ArrayDeque<>();
   private final Roster roster;
   private final GameConfig config;
+  private final Timer timer;
+  private TimerTask timeout;
   private Calendar lastActivity = null;
   private boolean gameInProgress = false;
   private int turnIndex;
@@ -27,6 +32,11 @@ public class Table {
     this.roster = roster;
     this.config = config;
     this.mainPot = new Pot();
+    if (config.timeoutSeconds != null && config.timeoutSeconds > 0) {
+      timer = new Timer();
+    } else {
+      timer = null;
+    }
   }
 
   private boolean verifyCurrentPlayer(Player player) {
@@ -296,12 +306,11 @@ public class Table {
       startPlayer = 0;
     }
     mainPot.reset();
-    // TODO: Blinds
 
     callback.showPlayers(players.stream().collect(Collectors.toMap(Player::getName, Player::getMoney)));
     deal();
     collectForcedBets();
-    sendStatus(getCurrentPlayer().getName());
+    playerTurn(getCurrentPlayer().getName());
   }
 
   private void nextTurn() {
@@ -334,7 +343,7 @@ public class Table {
       callback.announce(nextPlayer.getName() + " is all-in, next player...");
       nextTurn();
     } else {
-      sendStatus(nextPlayer.getName());
+      playerTurn(nextPlayer.getName());
     }
   }
 
@@ -414,9 +423,27 @@ public class Table {
     callback.revealPlayers(reveal);
   }
 
-  private void sendStatus(String turn) {
-    callback.updateTable(table, mainPot.getMoney(), turn);
-    callback.declarePlayerTurn(turn);
+
+  private void timeoutFor(String playerName) {
+    if (timer == null) return;
+    if (timeout != null) timeout.cancel();
+    timeout = new TimerTask() {
+      public void run() {
+        callback.playerTimeout(playerName);
+        if (mainPot.playerCleared(getPlayer(playerName))) {
+          check(playerName);
+        } else {
+          fold(playerName);
+        }
+      }
+    };
+    timer.schedule(timeout, config.timeoutSeconds * 1000);
+  }
+
+  private void playerTurn(String playerName) {
+    timeoutFor(playerName);
+    callback.updateTable(table, mainPot.getMoney(), playerName);
+    callback.declarePlayerTurn(playerName);
   }
 
   private void collectForcedBets() {
@@ -471,6 +498,7 @@ public class Table {
 
   public void stopGame() {
     gameInProgress = false;
+    if (timeout != null) timeout.cancel();
     if (players.size() == 1) {
       final Player winner = players.get(0);
       roster.modifyMoney(winner.getName(), winner.getMoney() - config.startStash);

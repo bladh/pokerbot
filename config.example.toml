@@ -13,3 +13,4 @@ verbose = true
 startStash = 200
 # ante = 5
 bigBlind = 5
+timeoutSeconds = 0

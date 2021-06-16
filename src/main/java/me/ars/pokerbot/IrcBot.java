@@ -446,6 +446,11 @@ public class IrcBot extends PircBot {
     }
 
     @Override
+    public void playerTimeout(String name) {
+      sendMessage(channel, renderNick(name) + " has been timed out (" + config.game.timeoutSeconds + " seconds)");
+    }
+
+    @Override
     public void playerCashedOut(String name, int money) {
       sendMessage(channel, renderNick(name) + " cashed out with " + moneyString(money) + "!");
     }

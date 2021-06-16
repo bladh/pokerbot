@@ -74,6 +74,13 @@ public interface StateCallback {
     void playerFolded(String name);
 
     /**
+     * A player has been timed out.
+     *
+     * @param name Name of timed out player
+     */
+    void playerTimeout(String name);
+
+    /**
      * A player cashed out and left the table.
      *
      * @param name  Name of cashing out player

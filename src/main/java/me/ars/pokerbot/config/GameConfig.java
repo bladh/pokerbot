@@ -5,4 +5,5 @@ public class GameConfig {
     public Integer ante;
     public Integer bigBlind;
     public Boolean spyCards;
+    public Integer timeoutSeconds;
 }

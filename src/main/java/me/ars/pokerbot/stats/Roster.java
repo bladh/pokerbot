@@ -21,8 +21,8 @@ public class Roster {
             try (ObjectInputStream stream = new ObjectInputStream(new FileInputStream(rosterFile))) {
                 final Map<String, Stats> input = (Map<String, Stats>)stream.readObject();
                 roster.roster.putAll(input);
-            } catch (ClassNotFoundException e) {
-                throw new IOException("Invalid stats file", e);
+            } catch (ClassNotFoundException | EOFException e) {
+                System.err.println("Invalid stats file: " + e.toString());
             }
         }
         return roster;

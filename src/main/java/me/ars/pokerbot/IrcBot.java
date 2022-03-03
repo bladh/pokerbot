@@ -293,9 +293,12 @@ public class IrcBot extends PircBot {
           sendMessage(sender, "You need to specify a channel where I'm creating a table");
           break;
         }
-        final String newChannel = split[1];
+        String newChannel = split[1];
+	if (newChannel.charAt(0) != '#') {
+	  newChannel = "#" + newChannel;
+	}
         if (tables.containsKey(newChannel)) {
-          sendMessage(sender, "#" + newChannel + " already has a table.");
+          sendMessage(sender, newChannel + " already has a table.");
           break;
         }
         final IrcStateCallback callback = new IrcStateCallback(newChannel);
@@ -305,7 +308,7 @@ public class IrcBot extends PircBot {
         } else {
           joinChannel(newChannel);
         }
-        sendMessage(sender, "Table created. To remove the table, simply kick the bot from the channel.");
+        sendMessage(sender, "Table " + newChannel + " created. To remove the table, simply kick the bot from the channel.");
         break;
       }
     }

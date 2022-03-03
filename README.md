@@ -17,7 +17,9 @@ The bot can be launched with the following command from the root directory:
 ./gradlew run
 ```
 
-The bot will join the channel specified in `parameters.cfg`, but supports multiple channels.
+The bot will join the channel specified in `config.toml`, but supports multiple channels.
+
+To create your own config file, reference the `config.example.toml` file.
 
 ### Commands
 
@@ -25,8 +27,8 @@ Commands are issued by prefixing a command keyword with a predefined command pre
 
 #### Creating more tables
 
-Private message the bot with `createtable CHANNELNAME`, and it will join that channel and set up a table. Kicking the
-bot removes the table. If the channel requires a password, just supply it like `createtable CHANNELNAME CHANNELPASSWORD`.
+Private message the bot with `.createtable #CHANNELNAME`, and it will join that channel and set up a table. Kicking the
+bot removes the table. If the channel requires a password, just supply it like `.createtable #CHANNELNAME CHANNELPASSWORD`.
 
 #### General Commands
 
@@ -40,7 +42,8 @@ Keyword | Description
 `start` | Start the game.
 `clear` | Clear the players list for the next game.
 `stop` | Stop the game.
-`help` | Display help information.
+`activity` | Show the date and time of latest table activity
+`current` | Show what cards are currently on the table and whose turn it is
 
 #### Game Commands
 
@@ -49,27 +52,28 @@ Keyword | Description
 `call` | Match the current bet.
 `check` | Raise nothing, pass on to the next player.
 `raise` | Raise by the specified amount *on top of* the last raise (which may have been 0).
+`allin` | Go all in
 `fold` | Discard your hand and forfeit. You can resume playing next hand.
 `cashout` | Quit the game, taking the fortunes you've won with you.
 
 ### Customization
 
-The bot's parameters (e.g. name, game channel, command prefix, admin key) can be customized through the [`parameters.cfg`](parameters.cfg) configuration file.
+The bot needs a `config.toml` file to be able to launch. Inside you can configure
+some options:
+
+`startStash` the amount of money players will start with
+
+`ante` How much money to pay for the ante. Set to 0 if you don't want to play with ante.
+
+`bigBlind` How big the big blind is. The small blind will be half of the big blind, rounded up. Set to 0 if you don't want to play with blinds
+
+`spyCards` Special rule that will reveal one card from one opponents hand to each player. Each player will see a different card, and one player will see a fake card that nobody is holding. Set to `true` if you want to play with this rule.
 
 Requirements
 ------------
 
 - PircBot library (SSL-modified jar included)
 - Java 8
-
-
-To-do
------
-
-- [x] Small and big blinds
-- [x] Side pot logic
-- [x] Further separation of front-end (bot) and back-end (poker engine)
-- [x] Let ongoing games be joinable
 
 
 Issues

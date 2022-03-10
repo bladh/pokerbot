@@ -623,4 +623,101 @@ public class Table {
       getPot(sb, pot.getSidePot());
     }
   }
+
+  /**
+   * Configure an option on this table, or review its current value
+   *
+   * @param option The option to review or change
+   * @param newValue The new value to set; if null then show the current value
+   */
+  public void configure(String option, String newValue) {
+      switch(option) {
+        case "bigblind": {
+          if (newValue == null) {
+            final int bigBlind = config.bigBlind;
+            if (bigBlind < 1) {
+              callback.announce("Blinds are disabled on this table.");
+            } else {
+              callback.announce("The big blind is currently set to " + bigBlind + ".");
+            }
+            break;
+          }
+          int newBigBlind;
+          try {
+            newBigBlind = Integer.parseInt(newValue);
+          } catch (Exception e) {
+            callback.announce("Invalid value for blind : " + newValue);
+            break;
+          }
+          if (newBigBlind < 0) newBigBlind = 0;
+          config.bigBlind = newBigBlind;
+          callback.announce("Changed big blind to " + newBigBlind + ".");
+          break;
+        }
+        case "ante": {
+          if (newValue == null) {
+            final int ante = config.ante;
+            if (ante < 1) {
+              callback.announce("Antes are disabled on this table.");
+            } else {
+              callback.announce("The ante is currently set to " + ante + ".");
+            }
+            break;
+          }
+          int newAnte;
+          try {
+            newAnte = Integer.parseInt(newValue);
+          } catch (Exception e) {
+            callback.announce("Invalid value for ante : " + newValue);
+            break;
+          }
+          if (newAnte < 0) newAnte = 0;
+          config.ante = newAnte;
+          callback.announce("Changed ante to " + newAnte + ".");
+          break;
+        }
+        case "startstash": {
+          if (newValue == null) {
+            final int startStash = config.startStash;
+            callback.announce("The starting stash is currently set to " + startStash + ".");
+            break;
+          }
+          int newStash;
+          try {
+            newStash = Integer.parseInt(newValue);
+          } catch (Exception e) {
+            callback.announce("Invalid value for starting stash : " + newValue);
+            break;
+          }
+          if (newStash < 1) newStash = 1;
+          config.startStash = newStash;
+          callback.announce("Changed starting stash to " + newStash + ".");
+          break;
+        }
+        case "spycards": {
+          if (newValue == null) {
+            if (config.spyCards) {
+              callback.announce("Spycards are currently enabled.");
+            } else {
+              callback.announce("Spycards are currently disabled.");
+            }
+            break;
+          }
+          boolean newSpy;
+          try {
+            newSpy = Boolean.parseBoolean(newValue);
+          } catch (Exception e) {
+            callback.announce("Invalid value for spycards: " + newValue + ". Use only true or false.");
+            break;
+          }
+          config.spyCards = newSpy;
+          callback.announce("Spycards enabled: " + newSpy);
+          break;
+        }
+        default: {
+          callback.announce("Unrecognized option: " + option);
+          break;
+        }
+      }
+  }
 }

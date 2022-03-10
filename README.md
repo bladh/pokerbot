@@ -44,6 +44,7 @@ Keyword | Description
 `stop` | Stop the game.
 `activity` | Show the date and time of latest table activity
 `current` | Show what cards are currently on the table and whose turn it is
+`config` | Configure table settings, see below
 
 #### Game Commands
 
@@ -68,6 +69,10 @@ some options:
 `bigBlind` How big the big blind is. The small blind will be half of the big blind, rounded up. Set to 0 if you don't want to play with blinds
 
 `spyCards` Special rule that will reveal one card from one opponents hand to each player. Each player will see a different card, and one player will see a fake card that nobody is holding. Set to `true` if you want to play with this rule.
+
+If you want to configure an already created table in your channel, you can write
+`.config` followed by one of the options listed above, and then followed by the
+new value. It will show the currently configured value if you omit giving a new value.
 
 Requirements
 ------------

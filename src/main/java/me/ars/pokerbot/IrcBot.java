@@ -256,11 +256,36 @@ public class IrcBot extends PircBot {
         table.cashout(sender);
         break;
       }
+      case "config": {
+        configureTable(table, channel, split);
+        break;
+      }
       case "help": {
         // todo
         break;
       }
     }
+  }
+
+  private void configureTable(Table table, String channel, String[] arguments) {
+      if (arguments.length == 1) {
+        sendMessage(channel, "Specify an option to configure, followed by its new value.");
+        return;
+      }
+      final String newValue;
+      final String option = arguments[1];
+
+      if (arguments.length == 2) {
+        // User just wants to review whats currently configured
+        newValue = null;
+      } else {
+        if (table.isGameInProgress()) {
+          sendMessage(channel, "Can only change table configuration when a game is not in progress.");
+          return;
+        }
+        newValue = arguments[2];
+      }
+      table.configure(option, newValue);
   }
 
   private boolean isAdmin(String hostname) {

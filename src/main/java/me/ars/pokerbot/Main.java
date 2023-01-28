@@ -2,12 +2,12 @@ package me.ars.pokerbot;
 
 import java.io.IOException;
 import java.io.File;
+import java.util.logging.Logger;
 
-import org.jibble.pircbot.IrcException;
-import org.jibble.pircbot.TrustingSSLSocketFactory;
 import com.moandjiezana.toml.Toml;
 
 import me.ars.pokerbot.config.BotConfig;
+import me.ars.pokerbot.irc.KittehBot;
 
 public class Main {
     public static void main(String[] args) {
@@ -19,27 +19,14 @@ public class Main {
             return;
         }
         final BotConfig config = new Toml(defaults).read(configFile).to(BotConfig.class);
-        IrcBot bot = new IrcBot(config);
+        KittehBot bot = new KittehBot(config);
         bot.setVerbose(config.irc.verbose);
         System.out.println(config.irc.server + ":" + config.irc.port);
-
-        try {
-            if (config.irc.serverPassword == null) {
-                bot.connect(
-                    config.irc.server,
-                    config.irc.port,
-                    new TrustingSSLSocketFactory()
-                );
-            } else {
-                bot.connect(
-                    config.irc.server, config.irc.port,
-                    config.irc.serverPassword,
-                    new TrustingSSLSocketFactory()
-                );
-            }
-            bot.joinGameChannel(config.irc.channel, config.irc.channelPassword);
-        } catch (IrcException | IOException e) {
-            e.printStackTrace();
-        }
+        bot.connect(
+                config.irc.server,
+                config.irc.port,
+                config.irc.serverPassword
+        );
+        bot.joinGameChannel(config.irc.channel, config.irc.channelPassword);
     }
 }

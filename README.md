@@ -1,7 +1,7 @@
 PokerBot -- An IRC Croupier
 ===========================
 
-PokerBot is a lightweight IRC bot used for playing text-based poker (specifically, Texas hold 'em), built on top of the [PircBot framework](http://www.jibble.org/pircbot.php).
+PokerBot is a lightweight IRC bot used for playing text-based poker (specifically, Texas hold 'em).
 This repository is forked from [Pokerbot](https://github.com/arshajii/pokerbot).
 
 ![](misc/pokerbot_example_game.png)
@@ -77,7 +77,8 @@ new value. It will show the currently configured value if you omit giving a new 
 Requirements
 ------------
 
-- PircBot library (SSL-modified jar included)
+
+- KittehIrc (gradle dependency)
 - Java 8
 
 

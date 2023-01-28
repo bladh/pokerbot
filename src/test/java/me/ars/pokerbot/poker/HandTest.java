@@ -215,9 +215,7 @@ public class HandTest {
     1607432240313 ###       at java.util.ArrayList.sort(ArrayList.java:1462)
     1607432240313 ###       at me.ars.pokerbot.poker.Table.nextTurn(Table.java:284)
     1607432240314 ###       at me.ars.pokerbot.poker.Table.check(Table.java:94)
-    1607432240314 ###       at me.ars.pokerbot.IrcBot.onMessage(IrcBot.java:179)
-    1607432240314 ###       at org.jibble.pircbot.PircBot.handleLine(PircBot.java:1017)
-    1607432240314 ###       at org.jibble.pircbot.InputThread.run(InputThread.java:92)
+    1607432240314 ###       at me.ars.pokerbot.irc.IrcBot.onMessage(IrcBot.java:179)
     */
     final Card card1 = new Card(13, Suit.HEARTS);
     final Card card2 = new Card(12, Suit.HEARTS);
@@ -252,9 +250,7 @@ public class HandTest {
     1607507385572 ###       at me.ars.pokerbot.poker.Hand.getBestHand(Hand.java:119)
     1607507385572 ###       at me.ars.pokerbot.poker.Table.nextTurn(Table.java:281)
     1607507385572 ###       at me.ars.pokerbot.poker.Table.call(Table.java:73)
-    1607507385572 ###       at me.ars.pokerbot.IrcBot.onMessage(IrcBot.java:170)
-    1607507385578 ###       at org.jibble.pircbot.PircBot.handleLine(PircBot.java:1017)
-    1607507385578 ###       at org.jibble.pircbot.InputThread.run(InputThread.java:92)
+    1607507385572 ###       at me.ars.pokerbot.irc.IrcBot.onMessage(IrcBot.java:170)
     */
     final Card card1 = new Card(2, Suit.DIAMONDS);
     final Card card2 = new Card(14, Suit.SPADES);

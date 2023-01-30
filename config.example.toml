@@ -5,7 +5,6 @@ port = 6667
 nick = "PokerBot"
 channel = "#PokerBot"
 # channelPassword = "abc123"
-# adminPassword = "abc123"
 commandPrefix = "."
 verbose = true
 

@@ -21,7 +21,6 @@ public class Main {
         final BotConfig config = new Toml(defaults).read(configFile).to(BotConfig.class);
         KittehBot bot = new KittehBot(config);
         bot.setVerbose(config.irc.verbose);
-        System.out.println(config.irc.server + ":" + config.irc.port);
         bot.connect(
                 config.irc.server,
                 config.irc.port,

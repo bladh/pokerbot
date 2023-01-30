@@ -5,6 +5,7 @@ public class IrcConfig {
     public Integer port;
     public String serverPassword;
     public Boolean useSSL;
+    public Boolean bypassSSL;
     public String nick;
     public String channel;
     public String channelPassword;

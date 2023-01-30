@@ -9,8 +9,13 @@ import me.ars.pokerbot.stats.Stats;
 import net.engio.mbassy.listener.Handler;
 import org.kitteh.irc.client.library.Client;
 import org.kitteh.irc.client.library.element.User;
+import org.kitteh.irc.client.library.event.channel.ChannelJoinEvent;
 import org.kitteh.irc.client.library.event.channel.ChannelKickEvent;
 import org.kitteh.irc.client.library.event.channel.ChannelMessageEvent;
+import org.kitteh.irc.client.library.event.connection.ClientConnectionClosedEvent;
+import org.kitteh.irc.client.library.event.connection.ClientConnectionEstablishedEvent;
+import org.kitteh.irc.client.library.event.connection.ClientConnectionFailedEvent;
+import org.kitteh.irc.client.library.feature.ServerInfo;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -51,14 +56,19 @@ public class KittehBot implements Irc {
         tables = new HashMap<>();
         this.config = config;
         startingChannel = config.irc.channel;
-
-        final IrcStateCallback startingCallback = new IrcStateCallback(this, startingChannel);
-        tables.put(startingChannel, new Table(startingCallback, roster, config.game));
         botName = config.irc.nick;
     }
 
     private void logError(String message) {
         System.err.println(message);
+    }
+
+    private void logError(String message, Throwable throwable) {
+        System.err.println(message);
+        System.err.println(throwable.getMessage());
+        if (throwable.getCause() != null) {
+            System.err.println("Caused by: " + throwable.getCause().getMessage());
+        }
     }
 
     private void logDebug(String message) {
@@ -75,23 +85,25 @@ public class KittehBot implements Irc {
     }
 
     public void connect(String server, Integer port, String password) {
+        final Client.Builder builder = Client.builder();
+        final Client.Builder.Server serverBuilder;
 
-        final Client.Builder.Server.SecurityType security;
-        if (config.irc.useSSL) {
-            security = SECURE;
-        } else {
-            security = INSECURE;
+        builder.nick(botName)
+                .name(botName)
+                .realName(botName)
+                .user(botName);
+        serverBuilder = builder.server();
+        if (config.irc.bypassSSL) {
+            logDebug("Trusting all SSL certificates enabled.");
+            serverBuilder.secureTrustManagerFactory(InsecureTrustManagerFactory.INSTANCE);
         }
+        logDebug("Connecting to " + server + ":" + port);
+        serverBuilder.host(server)
+                .port(port, config.irc.useSSL ? SECURE : INSECURE)
+                .password(password);
 
-        ircClient = Client.builder()
-                .nick(botName)
-                .server()
-                .secureTrustManagerFactory(InsecureTrustManagerFactory.INSTANCE)
-                .host(server).port(port, security)
-                .password(password)
-                .then().buildAndConnect();
+        ircClient = serverBuilder.then().buildAndConnect();
         ircClient.getEventManager().registerEventListener(new Listener());
-
         ircClient.addChannel(startingChannel);
     }
 
@@ -342,9 +354,20 @@ public class KittehBot implements Irc {
     }
 
     private void removeGame(String channel) {
+        logDebug("Removing table for " + channel);
         final Table table = tables.get(channel);
         table.stopGame();
         tables.remove(channel);
+    }
+
+    private void setUpTable(String channel) {
+        if (tables.containsKey(channel)) {
+            logVerbose("Already have a table for " + channel);
+            return;
+        }
+        logDebug("Setting up a table for " + channel);
+        final IrcStateCallback callback = new IrcStateCallback(this, channel);
+        tables.put(channel, new Table(callback, roster, config.game));
     }
 
     public class Listener {
@@ -360,9 +383,43 @@ public class KittehBot implements Irc {
 
         @Handler
         public void onKickedEvent(ChannelKickEvent event) {
-            final User user = event.getTarget();
-            if (ircClient.isUser(user)) {
+            if (ircClient.isUser(event.getTarget())) {
                 removeGame(event.getChannel().getName());
+            }
+        }
+
+        @Handler
+        public void onJoinedChannel(ChannelJoinEvent event) {
+            if (ircClient.isUser(event.getUser())) {
+                logDebug("Joined " + event.getChannel().getName() + ".");
+                setUpTable(event.getChannel().getName());
+            }
+        }
+
+        @Handler
+        public void onConnectionEstablished(ClientConnectionEstablishedEvent event) {
+            final ServerInfo server = event.getClient().getServerInfo();
+            if (server.getAddress().isPresent()) {
+                logDebug("Connection established to " + server.getAddress().get());
+            }
+        }
+
+        @Handler
+        public void onConnectionClosed(ClientConnectionClosedEvent event) {
+            logError("Connection closed.");
+            if (event.getLastMessage().isPresent()) {
+                logError("Last message: " + event.getLastMessage().get());
+            }
+            if (event.getCause().isPresent()) {
+                logError("Cause for closed connection", event.getCause().get());
+            }
+        }
+
+        @Handler
+        public void onConnectionFailed(ClientConnectionFailedEvent event) {
+            logError("Connection failed.");
+            if (event.getCause().isPresent()) {
+                logError("Cause for failed connection", event.getCause().get());
             }
         }
     }

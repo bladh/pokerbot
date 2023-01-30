@@ -1,6 +1,11 @@
 [irc]
 server = "irc.freenode.net"
+# Set useSSL to true if you want to connect to SSL enabled servers
 useSSL = false
+# Sometimes SSL enabled servers have an out-of-date certificate, but don't
+# allow you to connect without enabling SSL. Set bypassSSL to true for these
+# cases to be able to connect anyway.
+bypassSSL = false
 port = 6667
 nick = "PokerBot"
 channel = "#PokerBot"

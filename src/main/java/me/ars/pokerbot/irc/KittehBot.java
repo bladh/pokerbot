@@ -93,13 +93,13 @@ public class KittehBot implements Irc {
                 .realName(botName)
                 .user(botName);
         serverBuilder = builder.server();
-        if (config.irc.bypassSSL) {
+        if (config.irc.bypassSSL != null && config.irc.bypassSSL) {
             logDebug("Trusting all SSL certificates enabled.");
             serverBuilder.secureTrustManagerFactory(InsecureTrustManagerFactory.INSTANCE);
         }
         logDebug("Connecting to " + server + ":" + port);
         serverBuilder.host(server)
-                .port(port, config.irc.useSSL ? SECURE : INSECURE)
+                .port(port, (config.irc.useSSL != null && config.irc.useSSL) ? SECURE : INSECURE)
                 .password(password);
 
         ircClient = serverBuilder.then().buildAndConnect();

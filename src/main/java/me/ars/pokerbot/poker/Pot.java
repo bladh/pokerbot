@@ -97,21 +97,21 @@ public class Pot {
     }
 
     public void collectAnte(Player player, int ante) {
-        System.out.println("Collecting ante from " + player + ", total paid: " + player.getAmountPayed());
         currentBet = ante;
         addContribution(player, player.bet(ante));
+        System.out.println("Collecting ante from " + player + ", total paid: " + getTotalContribution(player));
     }
 
     public int collectBigBlind(Player player, int bigBlind) {
-        System.out.println("Collecting big blind (" + bigBlind + ") from " + player);
         raise(player, bigBlind - (int) Math.ceil(((double) bigBlind) / 2));
+        System.out.println("Collecting big blind (" + bigBlind + ") from " + player);
         return bigBlind;
     }
 
     public int collectSmallBlind(Player player, int bigBlind) {
         final int smallBlind = (int) Math.ceil(((double) bigBlind) / 2);
-        System.out.println("Collecting small blind (" + smallBlind + ") from " + player);
         raise(player, smallBlind);
+        System.out.println("Collecting small blind (" + smallBlind + ") from " + player);
         return smallBlind;
     }
 
@@ -163,12 +163,12 @@ public class Pot {
             }
         }
         if (sidePot == null) {
-            System.out.println(player + " has raised by " + totalRaised);
             currentBet += amount;
             addContribution(player, player.bet(totalRaised));
+            System.out.println(player + " has raised by " + totalRaised);
         } else {
-            System.out.println(player + " raised, but its going into a sidepot");
             sidePot.raise(player, totalRaised);
+            System.out.println(player + " raised, but its going into a sidepot");
         }
         return totalRaised-owed;
     }

@@ -1,5 +1,6 @@
 package me.ars.pokerbot.poker;
 
+import me.ars.pokerbot.irc.IrcPlayer;
 import me.ars.pokerbot.stats.Roster;
 import me.ars.pokerbot.config.GameConfig;
 
@@ -12,15 +13,15 @@ public class Table {
   private final List<Player> players = new ArrayList<>();
   private final Queue<Card> deck = new ArrayDeque<>(52);
   private final List<Card> table = new ArrayList<>(5);
-  private final Queue<String> buyInPlayers = new ArrayDeque<>();
+  private final Queue<Player> buyInPlayers = new ArrayDeque<>();
   private final Roster roster;
   private final GameConfig config;
+  private final Pot mainPot;
   private Calendar lastActivity = null;
   private boolean gameInProgress = false;
   private int turnIndex;
   private int lastIndex;
   private int startPlayer;
-  private Pot mainPot;
 
   public Table(StateCallback callback, Roster roster, GameConfig config) {
     this.callback = callback;
@@ -35,16 +36,8 @@ public class Table {
   }
 
   public Player getCurrentPlayer() {
+    System.out.println("Current turn index: " + turnIndex + " out of " + players.size() + " players.");
     return players.get(turnIndex);
-  }
-
-  public Player getPlayer(String nick) {
-    for(Player player: players) {
-      if (player.getName().equals(nick)) {
-        return player;
-      }
-    }
-    return null;
   }
 
   public Calendar getLastActivity() {
@@ -68,20 +61,19 @@ public class Table {
       callback.announce("Not currently playing.");
       return;
     }
-    final String currentPlayer = getCurrentPlayer().getName();
+    final Player currentPlayer = getCurrentPlayer();
     callback.updateTable(table, mainPot.getMoney(), currentPlayer);
-    callback.announce(currentPlayer + " has $" + getPlayer(currentPlayer).getMoney());
+    callback.announce(currentPlayer.getName() + " has $" + currentPlayer.getMoney());
   }
 
   /**
    * Incoming 'call' from [player]
    */
-  public void call(String nick) {
-    final Player player = getPlayer(nick);
+  public void call(Player player) {
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
     final int amount = mainPot.call(player);
-    callback.playerCalled(nick, amount);
+    callback.playerCalled(player, amount);
     if (isEveryoneAllin()) {
       revealHands(players);
     }
@@ -91,48 +83,47 @@ public class Table {
   /**
    * Incoming check from [player]
    */
-  public void check(String nick) {
-    final Player player = getPlayer(nick);
+  public void check(Player player) {
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
 
     final boolean checked = mainPot.checkPlayer(player);
+    System.out.println(player + " could check: " + checked);
 
     if (checked) {
-      callback.playerChecked(nick);
+      callback.playerChecked(player);
       nextTurn();
     } else {
-      callback.mustCallRaise(player.getName(), mainPot.getTotalOwed(player));
+      System.err.println(player + " cannot check, they owe " + mainPot.getTotalOwed(player));
+      callback.mustCallRaise(player, mainPot.getTotalOwed(player));
     }
   }
 
   /**
    * Incoming raise from [player]
    */
-  public void raise(String nick, int raise) {
-    final Player player = getPlayer(nick);
+  public void raise(Player player, int raise) {
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
 
     final int result = mainPot.raise(player, raise);
     if (result != -1) {
-      callback.playerRaised(player.getName(), result);
+      callback.playerRaised(player, result);
       lastIndex = lastUnfolded(turnIndex - 1);
       nextTurn();
     } else {
-      callback.playerCannotRaise(player.getName(), player.getMoney());
+      callback.playerCannotRaise(player, player.getMoney());
     }
   }
 
   /**
    * Incoming allin from [player]
    */
-  public void allIn(String nick) {
-    final Player player = getPlayer(nick);
+  public void allIn(Player player) {
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
     mainPot.allIn(player);
-    callback.playerAllin(player.getName());
+    callback.playerAllin(player);
     lastIndex = lastUnfolded(turnIndex - 1);
     if (isEveryoneAllin()) {
       revealHands(players);
@@ -143,59 +134,51 @@ public class Table {
   /**
    * Incoming fold from [player]
    */
-  public void fold(String nick) {
-    final Player player = getPlayer(nick);
+  public void fold(Player player) {
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
     player.fold();
-    callback.playerFolded(player.getName());
+    callback.playerFolded(player);
     final boolean nextTurn = !checkForWinByFold();
     if (nextTurn) {
       nextTurn();
     }
   }
 
-  public void cashout(String nick) {
-    final Player player = getPlayer(nick);
-    if (!verifyCurrentPlayer(player)) return;
+  public void cashout(Player player) {
+    System.out.println("Cashing out " + player);
     setActivity();
     player.cashout();
-    callback.playerCashedOut(player.getName(), player.getMoney());
+    callback.playerCashedOut(player, player.getMoney());
     roster.modifyMoney(player.getName(), player.getMoney() - config.startStash);
     final boolean nextTurn = !checkForWinByFold();
-    if (nextTurn) {
+    if (isGameInProgress() && verifyCurrentPlayer(player) && nextTurn) {
       nextTurn();
     }
   }
 
-  public void registerPlayer(String name) {
+  public void registerPlayer(Player player) {
     if (gameInProgress) {
       callback.announce("A game is already in progress! Use the buyin command if you still want to join");
       return;
     }
-    addPlayer(name, true);
+    addPlayer(player, true);
+    player.setMoney(config.startStash);
   }
 
-  private boolean addPlayer(String name, boolean verbose) {
-    for(Player player: players) {
-      if (player.getName().equals(name)) {
-        if (verbose) {
-          callback.announce(name + " has already joined.");
-        }
-        return false;
-      }
+  private boolean addPlayer(Player newPlayer, boolean verbose) {
+    if (players.contains(newPlayer)) {
+      if (verbose) callback.announce(newPlayer.getName() + " has already joined.");
+      return false;
     }
-    players.add(new Player(name, config.startStash));
-    callback.announce(name + " has joined the game.");
+    players.add(newPlayer);
+    newPlayer.setMoney(config.startStash);
+    if (verbose) callback.announce(newPlayer.getName() + " has joined the game.");
     return true;
   }
 
   private static Card pickRandomCard(Random random, Card... cards) {
     return cards[random.nextInt(cards.length)];
-  }
-
-  private static <T> T getRandom(Random random, T... stuff) {
-    return stuff[random.nextInt(stuff.length)];
   }
 
   private void deal() {
@@ -226,7 +209,7 @@ public class Table {
           spyCard = pickRandomCard(random, randPlayer.getCard1(), randPlayer.getCard2());
         }
       }
-      callback.showPlayerCards(player.getName(), player.getCard1(), player.getCard2(), spyCard);
+      callback.showPlayerCards(player, player.getCard1(), player.getCard2(), spyCard);
     }
   }
 
@@ -240,16 +223,16 @@ public class Table {
     }
 
     if (!buyInPlayers.isEmpty()) {
-      for (String name : buyInPlayers) {
-        addPlayer(name, false);
-        roster.trackGame(name);
+      for (Player newPlayer : buyInPlayers) {
+        addPlayer(newPlayer, false);
+        //roster.trackGame(newPlayer);
       }
     }
 
     try {
       roster.saveRoster();
     } catch (IOException e) {
-      System.err.println(e.toString());
+      System.err.println(e);
       e.printStackTrace();
     }
 
@@ -270,6 +253,7 @@ public class Table {
     }
 
     if (players.size() < 2) {
+      System.out.println("Game ended!");
       callback.announce("Not enough players left to continue: game ended.");
       stopGame();
       return;
@@ -296,12 +280,11 @@ public class Table {
       startPlayer = 0;
     }
     mainPot.reset();
-    // TODO: Blinds
 
-    callback.showPlayers(players.stream().collect(Collectors.toMap(Player::getName, Player::getMoney)));
+    callback.showPlayers(players.stream().collect(Collectors.toMap((player) -> player, Player::getMoney)));
     deal();
     collectForcedBets();
-    sendStatus(getCurrentPlayer().getName());
+    sendStatus(getCurrentPlayer());
   }
 
   private void nextTurn() {
@@ -334,7 +317,7 @@ public class Table {
       callback.announce(nextPlayer.getName() + " is all-in, next player...");
       nextTurn();
     } else {
-      sendStatus(nextPlayer.getName());
+      sendStatus(nextPlayer);
     }
   }
 
@@ -384,10 +367,10 @@ public class Table {
     int numWinners = winners.size();
 
     if (numWinners == 1) {
-      callback.declareWinner(winner1.getName(), winningHand, pot.getMoney());
+      callback.declareWinner(winner1, winningHand, pot.getMoney());
       winner1.win(pot.getMoney());
     } else {
-      callback.declareSplitPot(winners.stream().map(Hand::getPlayer).map(Player::getName)
+      callback.declareSplitPot(winners.stream().map(Hand::getPlayer)
               .collect(Collectors.toList()), winningHand.getHandType(), pot.getMoney());
       pot.splitPot(winners.stream().map(Hand::getPlayer).collect(Collectors.toSet()));
     }
@@ -401,22 +384,22 @@ public class Table {
    * Reveals non-folded hands of the supplied players.
    */
   private void revealHands(Collection<Player> currentPlayers) {
-    final Map<String, List<Card>> reveal = new HashMap<>();
+    final Map<Player, List<Card>> reveal = new HashMap<>();
     for (Player p : currentPlayers) {
       if (!p.isFolded()) {
         final List<Card> cards = new ArrayList<>();
         cards.add(p.getCard1());
         cards.add(p.getCard2());
-        reveal.put(p.getName(), cards);
+        reveal.put(p, cards);
       }
     }
 
     callback.revealPlayers(reveal);
   }
 
-  private void sendStatus(String turn) {
-    callback.updateTable(table, mainPot.getMoney(), turn);
-    callback.declarePlayerTurn(turn);
+  private void sendStatus(Player player) {
+    callback.updateTable(table, mainPot.getMoney(), player);
+    callback.declarePlayerTurn(player);
   }
 
   private void collectForcedBets() {
@@ -439,7 +422,7 @@ public class Table {
       final int bigBlind = mainPot.collectBigBlind(bigBlindPlayer, config.bigBlind);
       lastIndex = lastUnfolded(turnIndex - 1);
       turnIndex = wrappedIncrement(turnIndex);
-      callback.collectBlinds(bigBlindPlayer.getName(), bigBlind, smallBlindPlayer.getName(), smallBlind);
+      callback.collectBlinds(bigBlindPlayer, bigBlind, smallBlindPlayer, smallBlind);
       turnIndex = oldTurnIndex;
       lastIndex = oldLastIndex;
     }
@@ -470,6 +453,7 @@ public class Table {
   }
 
   public void stopGame() {
+    System.out.println("Stopping game");
     gameInProgress = false;
     if (players.size() == 1) {
       final Player winner = players.get(0);
@@ -484,11 +468,12 @@ public class Table {
         }
       }
     }
+    final List<Player> oldPlayers = new ArrayList<>(players);
     players.clear();
     deck.clear();
     table.clear();
 
-    callback.announce("Game stopped.");
+    callback.gameEnded(oldPlayers);
 
     try {
       roster.saveRoster();
@@ -511,8 +496,9 @@ public class Table {
     if (last == null) return false;
 
     if (numPlayersLeft == 1) {
+      System.out.println("Have a winner: " + last);
       final int totalMoney = mainPot.getTotalMoney();
-      callback.declareWinner(last.getName(), null, totalMoney);
+      callback.declareWinner(last, null, totalMoney);
       last.win(totalMoney);
       setupHand();
       return true;
@@ -563,47 +549,45 @@ public class Table {
     players.clear();
   }
 
-  public void unjoin(String sender) {
-    final Iterator<Player> iter = players.iterator();
-    boolean everJoined = false;
-
-    while (iter.hasNext()) {
-      Player player = iter.next();
-
-      if (player.getName().equals(sender)) {
-        iter.remove();
-        callback.announce(sender + ": You have unjoined.");
-        everJoined = true;
-        break;
+  public void unjoin(Player player) {
+    if (isGameInProgress()) {
+      if (buyInPlayers.contains(player)) {
+        callback.announce(player.getName() + ": Your buyin was nulled.");
+        buyInPlayers.remove(player);
+      } else {
+        if (players.contains(player)) {
+          callback.announce(player.getName() + ": Cannot unjoin game in progress. Use cashout command.");
+        } else {
+          callback.announce(player.getName() + ": You are not part of the active game.");
+        }
       }
-    }
-
-    if (buyInPlayers.contains(sender)) {
-      callback.announce(sender + ": Your buyin was nulled.");
-      buyInPlayers.remove(sender);
-    } else if (!everJoined) {
-      callback.announce(sender + ": You never joined.");
+    } else {
+      if (players.contains(player)) {
+        callback.announce(player.getName() + ": You have unjoined.");
+        System.out.println(player.getName() + " unjoined.");
+        players.remove(player);
+      } else {
+        callback.announce(player.getName() + ": You never joined.");
+      }
     }
   }
 
-  public void buyin(String sender) {
+  public void buyin(Player newPlayer) {
     if (!gameInProgress) {
-      callback.announce(sender + ": Game hasn't started yet, putting you up for the game");
-      registerPlayer(sender);
+      callback.announce(newPlayer.getName() + ": Game hasn't started yet, putting you up for the game");
+      registerPlayer(newPlayer);
       return;
     }
-    for(Player player: players) {
-      if (player.getName().equals(sender)) {
-        callback.announce(sender + ": You're already in the game.");
+    if (players.contains(newPlayer)) {
+        callback.announce(newPlayer.getName() + ": You're already in the game.");
         return;
-      }
     }
-    if (buyInPlayers.contains(sender)) {
-      callback.announce(sender + ": You've already bought in");
+    if (buyInPlayers.contains(newPlayer)) {
+      callback.announce(newPlayer.getName() + ": You've already bought in");
       return;
     }
-    buyInPlayers.add(sender);
-    callback.announce(sender + " has bought in the game, will join on next hand.");
+    buyInPlayers.add(newPlayer);
+    callback.announce(newPlayer.getName() + " has bought in the game, will join on next hand.");
   }
 
   public void showPot() {
@@ -719,5 +703,15 @@ public class Table {
           break;
         }
       }
+  }
+
+  public void playerLeft(Player player) {
+    if (!players.contains(player)) return;
+
+    if (isGameInProgress()) {
+      cashout(player);
+    } else {
+      unjoin(player);
+    }
   }
 }

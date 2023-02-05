@@ -3,72 +3,79 @@ package me.ars.pokerbot.poker;
 import java.util.Objects;
 
 public class Player {
-	private final String name;
-	private int money;
-
-	/*
-	 * how much this player has payed in a given hand
+	/**
+	 * Immutable unique identifier for this player.
 	 */
-	private int payed = 0;
-
+	private final String uniqueIdentifier;
+	private int money;
 	private Card card1, card2;
 	private boolean active = true;
 	private boolean folded = false;
 	private boolean isAllIn = false;
 
+	/**
+	 * Creates a new Player object.
+	 *
+	 * @param uniqueIdentifier An identifier for this player that will not change over the course of the game.
+	 */
+	public Player(String uniqueIdentifier) {
+		this.uniqueIdentifier = uniqueIdentifier;
+	}
+
 	@Override
 	public String toString() {
-		return name;
+		return getName();
 	}
 
-	public Player(String name, int startMoney) {
-		this.name = name;
-		this.money = startMoney;
-	}
-
-	public boolean isAllIn() {
+	public final boolean isAllIn() {
 		return isAllIn;
 	}
 
-	public void setAllIn(boolean allIn) {
+	final void setAllIn(boolean allIn) {
 		isAllIn = allIn;
 	}
 
+	/**
+	 * Returns the name of the player.
+	 * This returns the unique identifier by default. You should override this if it would make more sense in your
+	 * implementation, for instance to instead return an irc nickname (which is something that could change).
+	 *
+	 * @return Name of the player
+	 */
 	public String getName() {
-		return name;
+		return uniqueIdentifier;
 	}
 
-	public int getMoney() {
+	public final int getMoney() {
 		return money;
 	}
 
-	public boolean isBroke() {
+	final void setMoney(int money) {
+		this.money = money;
+	}
+
+	public final boolean isBroke() {
 		return money == 0;
 	}
 
-	public int getAmountPayed() {
-		return payed;
-	}
-
-	public void newHand() {
-		payed = 0;
+	final void newHand() {
 		folded = false;
 	}
 
-	public void receiveCards(Card card1, Card card2) {
+	final void receiveCards(Card card1, Card card2) {
 		this.card1 = card1;
 		this.card2 = card2;
 	}
 
-	public Card getCard1() {
+	public final Card getCard1() {
 		return card1;
 	}
 
-	public Card getCard2() {
+	public final Card getCard2() {
 		return card2;
 	}
 
-	public boolean isFolded() {
+	public final boolean isFolded() {
 		return folded;
 	}
 
@@ -76,28 +83,26 @@ public class Player {
 		return active;
 	}
 
-	public int bet(int amount) {
+	final int bet(int amount) {
 		if (!active)
 			return 0;
-
-		payed += amount;
 		money -= amount;
 		return amount;
 	}
 
-	public void win(int pot) {
+	final void win(int pot) {
 		if (!active)
 			return;
 
 		money += pot;
 	}
 
-	public void cashout() {
+	final void cashout() {
 		fold();
 		active = false;
 	}
 
-	public void fold() {
+	final void fold() {
 		folded = true;
 	}
 
@@ -106,11 +111,11 @@ public class Player {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		Player player = (Player) o;
-		return name.equals(player.name);
+		return uniqueIdentifier.equals(player.uniqueIdentifier);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(name);
+		return Objects.hash(uniqueIdentifier);
 	}
 }

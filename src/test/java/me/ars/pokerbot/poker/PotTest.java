@@ -22,9 +22,12 @@ public class PotTest {
 
   @Before
   public void setup() {
-    player1 = new Player("player1", 200);
-    player2 = new Player("player2", 200);
-    player3 = new Player("player3", 200);
+    player1 = new Player("player1");
+    player1.setMoney(200);
+    player2 = new Player("player2");
+    player2.setMoney(200);
+    player3 = new Player("player3");
+    player3.setMoney(200);
   }
 
   @Test
@@ -66,7 +69,6 @@ public class PotTest {
     pot.raise(player1, 50);
     final int paid = 50 + ANTE;
     Assert.assertEquals(paid, pot.getTotalContribution(player1));
-    Assert.assertEquals(paid, player1.getAmountPayed());
     Assert.assertEquals("Player 2 should owe the new raise", 50, pot.getTotalOwed(player2));
     pot.call(player2);
     pot.call(player3);
@@ -141,8 +143,10 @@ public class PotTest {
 
   @Test
   public void testMakingSidePots() {
-    final Player scrooge = new Player("Scrooge", 200);
-    final Player donald = new Player("Donald", 100);
+    final Player scrooge = new Player("Scrooge");
+    scrooge.setMoney(200);
+    final Player donald = new Player("Donald");
+    donald.setMoney(100);
     final Pot pot = new Pot();
     pot.raise(scrooge, 150);
     pot.call(donald);
@@ -160,9 +164,12 @@ public class PotTest {
 
   @Test
   public void testMakingSidePotsThreePlayers() {
-    final Player scrooge = new Player("Scrooge", 500);
-    final Player gearloose = new Player("Gearloose", 200);
-    final Player donald = new Player("Donald", 50);
+    final Player scrooge = new Player("Scrooge");
+    scrooge.setMoney(500);
+    final Player gearloose = new Player("Gearloose");
+    gearloose.setMoney(200);
+    final Player donald = new Player("Donald");
+    donald.setMoney(50);
     final Set<Player> everyone = toSet(scrooge, gearloose, donald);
     final Pot pot = new Pot();
     pot.raise(scrooge, 100);
@@ -180,9 +187,12 @@ public class PotTest {
 
   @Test
   public void testAllins() {
-    final Player scrooge = new Player("Scrooge", 500);
-    final Player gearloose = new Player("Gearloose", 200);
-    final Player donald = new Player("Donald", 50);
+    final Player scrooge = new Player("Scrooge");
+    scrooge.setMoney(500);
+    final Player gearloose = new Player("Gearloose");
+    gearloose.setMoney(200);
+    final Player donald = new Player("Donald");
+    donald.setMoney(50);
     final Set<Player> everyone = toSet(scrooge, gearloose, donald);
     final Pot pot = new Pot();
     pot.raise(scrooge, 100);
@@ -210,9 +220,12 @@ public class PotTest {
 
   @Test
   public void testMultipleSidepots() {
-    final Player scrooge = new Player("Scrooge", 500);
-    final Player gearloose = new Player("Gearloose", 200);
-    final Player donald = new Player("Donald", 50);
+    final Player scrooge = new Player("Scrooge");
+    scrooge.setMoney(500);
+    final Player gearloose = new Player("Gearloose");
+    gearloose.setMoney(200);
+    final Player donald = new Player("Donald");
+    donald.setMoney(50);
     final Set<Player> everyone = toSet(scrooge, gearloose, donald);
     final Set<Player> secondPotParticipants = toSet(scrooge, gearloose);
     final Set<Player> thirdPotParticipants = toSet(scrooge);

@@ -12,9 +12,12 @@ import org.kitteh.irc.client.library.element.User;
 import org.kitteh.irc.client.library.event.channel.ChannelJoinEvent;
 import org.kitteh.irc.client.library.event.channel.ChannelKickEvent;
 import org.kitteh.irc.client.library.event.channel.ChannelMessageEvent;
+import org.kitteh.irc.client.library.event.channel.ChannelPartEvent;
 import org.kitteh.irc.client.library.event.connection.ClientConnectionClosedEvent;
 import org.kitteh.irc.client.library.event.connection.ClientConnectionEstablishedEvent;
 import org.kitteh.irc.client.library.event.connection.ClientConnectionFailedEvent;
+import org.kitteh.irc.client.library.event.user.UserNickChangeEvent;
+import org.kitteh.irc.client.library.event.user.UserQuitEvent;
 import org.kitteh.irc.client.library.feature.ServerInfo;
 
 import java.io.IOException;
@@ -39,6 +42,8 @@ public class KittehBot implements Irc {
     private Roster roster;
     private final BotConfig config;
 
+    private final Set<IrcPlayer> players;
+
     private String botName;
 
     private final String startingChannel;
@@ -57,6 +62,7 @@ public class KittehBot implements Irc {
         this.config = config;
         startingChannel = config.irc.channel;
         botName = config.irc.nick;
+        players = new HashSet<>(15);
     }
 
     private void logError(String message) {
@@ -107,14 +113,14 @@ public class KittehBot implements Irc {
         ircClient.addChannel(startingChannel);
     }
 
-    private void getStats(String nickname, String channel) {
+    private void getStats(IrcPlayer player, String channel) {
         if (roster == null) {
             message(channel, "No stats available at this time");
             return;
         }
-        final Stats stats = roster.getStats(nickname);
+        final Stats stats = roster.getStats(player.getName());
         if (stats == null) {
-            message(channel, "No stats tracked for " + nickname);
+            message(channel, "No stats tracked for " + player.getName());
             return;
         }
         message(channel, stats.toString());
@@ -128,6 +134,31 @@ public class KittehBot implements Irc {
         }
     }
 
+    private IrcPlayer getPlayer(String nick, String login, String hostname) {
+        for (IrcPlayer registeredPlayer: players) {
+            if (registeredPlayer.getNick().equals(nick)) {
+                return registeredPlayer;
+            }
+        }
+        logDebug("Could not find a registered player with the nick " + nick + ", so creating one.");
+        final String unique = UUID.randomUUID().toString();
+        final IrcPlayer player = new IrcPlayer(unique);
+        player.setNick(nick);
+        player.setLogin(login);
+        player.setHost(hostname);
+        players.add(player);
+        return player;
+    }
+
+    private void playerChangedNick(String oldNick, String newNick) {
+        for (IrcPlayer registeredPlayer: players) {
+            if (registeredPlayer.getNick().equals(oldNick)) {
+                logDebug(oldNick + " changed their nickname to " + newNick);
+                registeredPlayer.setNick(newNick);
+            }
+        }
+    }
+
     public void onMessage(String channel, String sender, String login, String hostname, String message) {
 
         if (!tables.containsKey(channel) || message.isEmpty() || message.charAt(0) != config.irc.commandPrefix) {
@@ -137,6 +168,7 @@ public class KittehBot implements Irc {
         final String[] split = SPACES.split(message);
         final Table table = tables.get(channel);
         final String command = split[0].substring(1).toLowerCase();
+        final IrcPlayer player;
 
         switch (command) {
             case "ping": {
@@ -144,7 +176,8 @@ public class KittehBot implements Irc {
                 break;
             }
             case "join": {
-                table.registerPlayer(sender);
+                player = getPlayer(sender, login, hostname);
+                table.registerPlayer(player);
                 break;
             }
             case "pot": {
@@ -152,7 +185,8 @@ public class KittehBot implements Irc {
                 break;
             }
             case "unjoin": {
-                table.unjoin(sender);
+                player = getPlayer(sender, login, hostname);
+                table.unjoin(player);
                 break;
             }
             case "current": {
@@ -160,7 +194,7 @@ public class KittehBot implements Irc {
                 break;
             }
             case "players": {
-                final List<Player> players = table.getPlayers();
+                final Collection<Player> players = table.getPlayers();
                 if (players.isEmpty()) {
                     message(channel, "No joined players.");
                     break;
@@ -170,8 +204,7 @@ public class KittehBot implements Irc {
                     message(
                             channel,
                             "Now playing: "
-                                    + players.stream().map(player ->
-                                            player.getName() + " $" + player.getMoney())
+                                    + players.stream().map(p -> p.getName() + " $" + p.getMoney())
                                     .collect(Collectors.joining(", ")) + ".");
                 } else {
                     message(
@@ -183,7 +216,8 @@ public class KittehBot implements Irc {
                 break;
             }
             case "buyin": {
-                table.buyin(sender);
+                player = getPlayer(sender, login, hostname);
+                table.buyin(player);
                 break;
             }
             case "activity": {
@@ -196,7 +230,8 @@ public class KittehBot implements Irc {
                 break;
             }
             case "stats": {
-                getStats(sender, channel);
+                player = getPlayer(sender, login, hostname);
+                getStats(player, channel);
                 break;
             }
             case "clear": {
@@ -223,15 +258,20 @@ public class KittehBot implements Irc {
                 if (!table.isGameInProgress()) {
                     break;
                 }
-
+                final List<Player> oldPlayers = table.getPlayers();
                 table.stopGame();
+                for (Table otherTable: tables.values()) {
+                    oldPlayers.removeAll(otherTable.getPlayers());
+                }
+                players.removeAll(oldPlayers);
                 break;
             }
             case "call": {
                 if (!table.isGameInProgress()) {
                     break;
                 }
-                table.call(sender);
+                player = getPlayer(sender, login, hostname);
+                table.call(player);
                 break;
             }
             case "c":
@@ -240,8 +280,8 @@ public class KittehBot implements Irc {
                 if (!table.isGameInProgress()) {
                     break;
                 }
-
-                table.check(sender);
+                player = getPlayer(sender, login, hostname);
+                table.check(player);
                 break;
             }
             case "r":
@@ -270,11 +310,12 @@ public class KittehBot implements Irc {
                             "Can only raise by a positive amount.");
                     break;
                 }
+                player = getPlayer(sender, login, hostname);
 
                 if (newRaise == 1) {
-                    table.call(sender);
+                    table.call(player);
                 } else {
-                    table.raise(sender, newRaise);
+                    table.raise(player, newRaise);
                 }
 
                 break;
@@ -283,7 +324,8 @@ public class KittehBot implements Irc {
                 if (!table.isGameInProgress()) {
                     break;
                 }
-                table.allIn(sender);
+                player = getPlayer(sender, login, hostname);
+                table.allIn(player);
                 break;
             }
             case "f":
@@ -292,7 +334,8 @@ public class KittehBot implements Irc {
                     break;
                 }
 
-                table.fold(sender);
+                player = getPlayer(sender, login, hostname);
+                table.fold(player);
                 break;
             }
             case "cashout": {
@@ -300,7 +343,9 @@ public class KittehBot implements Irc {
                     break;
                 }
 
-                table.cashout(sender);
+                player = getPlayer(sender, login, hostname);
+                table.cashout(player);
+                checkRemovePlayer(player);
                 break;
             }
             case "config": {
@@ -314,6 +359,19 @@ public class KittehBot implements Irc {
         }
     }
 
+    private void checkRemovePlayer(IrcPlayer player) {
+        boolean playingElsewhere = false;
+        for (Table otherTable: tables.values()) {
+            if (otherTable.getPlayers().contains(player)) {
+                playingElsewhere = true;
+                break;
+            }
+        }
+        if (!playingElsewhere) {
+            players.remove(player);
+        }
+    }
+
     private void configureTable(Table table, String channel, String[] arguments) {
         if (arguments.length == 1) {
             message(channel, "Specify an option to configure, followed by its new value.");
@@ -323,7 +381,7 @@ public class KittehBot implements Irc {
         final String option = arguments[1];
 
         if (arguments.length == 2) {
-            // User just wants to review whats currently configured
+            // User just wants to review what's currently configured
             newValue = null;
         } else {
             if (table.isGameInProgress()) {
@@ -349,6 +407,16 @@ public class KittehBot implements Irc {
         ircClient.sendMessage(channel, message);
     }
 
+    @Override
+    public void message(Player player, String message) {
+        if (ircClient == null) {
+            logError("Bot not yet connected to irc.");
+            return;
+        }
+        final IrcPlayer ircPlayer = (IrcPlayer) player;
+        ircClient.sendMessage(ircPlayer.getNick(), message);
+    }
+
     public void setVerbose(Boolean verbose) {
         this.verbose = verbose;
     }
@@ -370,6 +438,14 @@ public class KittehBot implements Irc {
         tables.put(channel, new Table(callback, roster, config.game));
     }
 
+    @Override
+    public void gameEnded(List<Player> oldPlayers) {
+        for (Table otherTable: tables.values()) {
+            oldPlayers.removeAll(otherTable.getPlayers());
+        }
+        players.removeAll(oldPlayers);
+    }
+
     public class Listener {
         @Handler
         public void onMessageEvent(ChannelMessageEvent event) {
@@ -383,8 +459,21 @@ public class KittehBot implements Irc {
 
         @Handler
         public void onKickedEvent(ChannelKickEvent event) {
+            final String channel = event.getChannel().getName();
             if (ircClient.isUser(event.getTarget())) {
-                removeGame(event.getChannel().getName());
+                removeGame(channel);
+            } else {
+                final String nick = event.getTarget().getNick();
+                if (!tables.containsKey(channel)) return;
+                for (IrcPlayer player: players) {
+                    if (nick.equals(player.getNick())) {
+                        logDebug("A player has been kicked from a channel where they may have been playing.");
+                        final Table table = tables.get(channel);
+                        table.playerLeft(player);
+                        checkRemovePlayer(player);
+                        return;
+                    }
+                }
             }
         }
 
@@ -412,6 +501,46 @@ public class KittehBot implements Irc {
             }
             if (event.getCause().isPresent()) {
                 logError("Cause for closed connection", event.getCause().get());
+            }
+        }
+
+        @Handler
+        public void onChangedNick(UserNickChangeEvent event) {
+            final String oldNick = event.getOldUser().getNick();
+            final String newNick = event.getNewUser().getNick();
+            playerChangedNick(oldNick, newNick);
+        }
+
+        @Handler
+        public void onUserDisconnected(UserQuitEvent event) {
+            final String nick = event.getUser().getNick();
+            for (IrcPlayer player: players) {
+                if (nick.equals(player.getNick())) {
+                    logDebug("A player has disconnected.");
+                    for (Table table: tables.values()) {
+                        table.playerLeft(player);
+                    }
+                    players.remove(player);
+                    checkRemovePlayer(player);
+                    return;
+                }
+            }
+        }
+
+        @Handler
+        public void onUserParted(ChannelPartEvent event) {
+            final String nick = event.getUser().getNick();
+            if (!event.getAffectedChannel().isPresent()) return;
+            final String channel = event.getAffectedChannel().get().getName();
+            if (!tables.containsKey(channel)) return;
+            for (IrcPlayer player: players) {
+                if (nick.equals(player.getNick())) {
+                    logDebug("A player has left a channel where they may have been playing.");
+                    final Table table = tables.get(channel);
+                    table.playerLeft(player);
+                    checkRemovePlayer(player);
+                    return;
+                }
             }
         }
 

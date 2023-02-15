@@ -1,5 +1,5 @@
 [irc]
-server = "irc.freenode.net"
+server = "irc.libera.chat"
 # Set useSSL to true if you want to connect to SSL enabled servers
 useSSL = false
 # Sometimes SSL enabled servers have an out-of-date certificate, but don't

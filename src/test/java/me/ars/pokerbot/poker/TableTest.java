@@ -159,8 +159,9 @@ public class TableTest {
     Assert.assertEquals("After player 1 leaves, it should be player 2", p2, table.getCurrentPlayer());
     table.check(p2);
     Assert.assertEquals("After player 2 checks, it should be player 3", p3, table.getCurrentPlayer());
-    table.call(p3);
-    Assert.assertEquals("Player 3 should be able to call the blind, and it should be back to player 2", p2,
+    boolean couldCall = table.call(p3);
+    Assert.assertTrue("Player 3 should be able to call the blind", couldCall);
+    Assert.assertEquals("It should be back to player 2s turn", p2,
             table.getCurrentPlayer());
     table.check(p2);
     table.check(p3);
@@ -195,6 +196,77 @@ public class TableTest {
     table.playerLeft(p3);
     Assert.assertTrue("The game must have had a winner", hadWinner.get());
     Assert.assertFalse("The game should be over", table.isGameInProgress());
+  }
+
+  @Test
+  public void testFlopOrder() {
+    final Helper hadWinner = new Helper(false);
+
+    Mockito.doAnswer(invocation -> {
+      Object[] args = invocation.getArguments();
+      Object mock = invocation.getMock();
+      Player winner = (Player)args[0];
+      System.out.println(winner + " has won!");
+      hadWinner.set(true);
+      return null;
+    }).when(callback).declareWinner(any(Player.class), any(Hand.class), anyInt());
+
+    Mockito.doAnswer(invocation -> {
+      Object[] args = invocation.getArguments();
+      Object mock = invocation.getMock();
+      System.out.println("Split pot!");
+      hadWinner.set(true);
+      return null;
+    }).when(callback).declareSplitPot(anyList(), any(Hand.HandType.class), anyInt());
+
+    Mockito.doAnswer(invocation -> {
+      Object[] args = invocation.getArguments();
+      Object mock = invocation.getMock();
+      Player currentPlayer = (Player)args[2];
+      List<Card> cards = (List<Card>)args[0];
+      final String tableStr = cards.isEmpty() ? "no cards" : cards.stream()
+          .map(Card::toString).collect(Collectors.joining(", "));
+      System.out.println(currentPlayer + " - " + tableStr);
+      return null;
+    }).when(callback).updateTable(anyList(),anyInt(),any(Player.class));
+    final Player p1 = new Player("player1");
+    final Player p2 = new Player("player2");
+
+    table.registerPlayer(p1);
+    table.registerPlayer(p2);
+    table.startGame();
+
+    Assert.assertEquals("The first joined player should be the first to play", p1, table.getCurrentPlayer());
+    Assert.assertEquals("StartPlayer should be 0", 0, table.getStartPlayer());
+    table.call(p1);
+    Assert.assertEquals("After player 1 calls, it should be player 2", p2, table.getCurrentPlayer());
+    table.check(p2);
+    Assert.assertEquals("It should be player 1s turn on the first flop.", p1, table.getCurrentPlayer());
+    table.check(p1);
+    table.check(p2);
+    Assert.assertEquals("It should be player 1s turn on the first turn.", p1, table.getCurrentPlayer());
+    table.check(p1);
+    table.check(p2);
+    Assert.assertEquals("It should be player 1s turn on the first river.", p1, table.getCurrentPlayer());
+    table.check(p1);
+    table.check(p2);
+    Assert.assertTrue("The game must have had a winner", hadWinner.get());
+    Assert.assertEquals("StartPlayer should be 1", 1, table.getStartPlayer());
+    Assert.assertEquals("Player2 should be the starting player on the next hand.", p2, table.getCurrentPlayer());
+    table.call(p2);
+    Assert.assertEquals("After player 2 calls, it should be player 1", p1, table.getCurrentPlayer());
+    final boolean couldCall = table.call(p1);
+    Assert.assertTrue("Player 1 should be able to call", couldCall);
+    Assert.assertEquals("It should be player 2s turn on the second flop.", p2, table.getCurrentPlayer());
+    table.check(p2);
+    table.check(p1);
+    Assert.assertEquals("It should be player 2s turn on the second turn.", p2, table.getCurrentPlayer());
+    table.check(p2);
+    table.check(p1);
+    Assert.assertEquals("It should be player 2s turn on the second river.", p2, table.getCurrentPlayer());
+    table.check(p2);
+    table.check(p1);
+    Assert.assertTrue("The game must have had a winner", hadWinner.get());
   }
 
   /**

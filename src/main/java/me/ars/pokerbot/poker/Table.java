@@ -36,7 +36,7 @@ public class Table {
   }
 
   public Player getCurrentPlayer() {
-    System.out.println("Current turn index: " + turnIndex + " out of " + players.size() + " players.");
+    System.out.println("Current turn index: " + turnIndex + " out of " + players.size() + " players. StartPlayer is " + startPlayer + ".");
     return players.get(turnIndex);
   }
 
@@ -69,8 +69,8 @@ public class Table {
   /**
    * Incoming 'call' from [player]
    */
-  public void call(Player player) {
-    if (!verifyCurrentPlayer(player)) return;
+  public boolean call(Player player) {
+    if (!verifyCurrentPlayer(player)) return false;
     setActivity();
     final int amount = mainPot.call(player);
     callback.playerCalled(player, amount);
@@ -78,13 +78,16 @@ public class Table {
       revealHands(players);
     }
     nextTurn();
+    return true;
   }
 
   /**
    * Incoming check from [player]
+   *
+   * @return True if the player successfully checks.
    */
-  public void check(Player player) {
-    if (!verifyCurrentPlayer(player)) return;
+  public boolean check(Player player) {
+    if (!verifyCurrentPlayer(player)) return false;
     setActivity();
 
     final boolean checked = mainPot.checkPlayer(player);
@@ -97,13 +100,16 @@ public class Table {
       System.err.println(player + " cannot check, they owe " + mainPot.getTotalOwed(player));
       callback.mustCallRaise(player, mainPot.getTotalOwed(player));
     }
+    return checked;
   }
 
   /**
    * Incoming raise from [player]
+   *
+   * @return True if the raise was successful
    */
-  public void raise(Player player, int raise) {
-    if (!verifyCurrentPlayer(player)) return;
+  public boolean raise(Player player, int raise) {
+    if (!verifyCurrentPlayer(player)) return false;
     setActivity();
 
     final int result = mainPot.raise(player, raise);
@@ -111,8 +117,10 @@ public class Table {
       callback.playerRaised(player, result);
       lastIndex = lastUnfolded(turnIndex - 1);
       nextTurn();
+      return true;
     } else {
       callback.playerCannotRaise(player, player.getMoney());
+      return false;
     }
   }
 
@@ -228,6 +236,7 @@ public class Table {
         //roster.trackGame(newPlayer);
       }
     }
+    buyInPlayers.clear();
 
     try {
       roster.saveRoster();
@@ -236,20 +245,13 @@ public class Table {
       e.printStackTrace();
     }
 
-    buyInPlayers.clear();
-
     final Iterator<Player> playerIter = players.iterator();
-    int index = 0;
 
     while (playerIter.hasNext()) {
       Player player = playerIter.next();
       if (!player.isActive()) {
         playerIter.remove();
-        if (index < startPlayer) {
-          startPlayer = wrappedDecrement(startPlayer);
-        }
       }
-      index++;
     }
 
     if (players.size() < 2) {
@@ -271,20 +273,28 @@ public class Table {
     deck.addAll(rawDeck);
     table.clear();
     turnIndex = startPlayer;
-    try {
-      lastIndex = lastUnfolded(startPlayer - 1);
-      startPlayer = wrappedIncrement(startPlayer);
-    } catch (IndexOutOfBoundsException e) {
-      System.err.println(e.toString());
-      e.printStackTrace();
-      startPlayer = 0;
-    }
+    lastIndex = lastUnfolded(startPlayer - 1);
     mainPot.reset();
 
     callback.showPlayers(players.stream().collect(Collectors.toMap((player) -> player, Player::getMoney)));
     deal();
     collectForcedBets();
     sendStatus(getCurrentPlayer());
+  }
+
+  private void incrementStartPlayer() {
+    try {
+      startPlayer = wrappedIncrement(startPlayer);
+      System.out.println("Incremented startplayer to " + startPlayer);
+    } catch (IndexOutOfBoundsException e) {
+      System.err.println(e.toString());
+      e.printStackTrace();
+      startPlayer = 0;
+    }
+  }
+
+  public int getStartPlayer() {
+    return startPlayer;
   }
 
   private void nextTurn() {
@@ -295,11 +305,12 @@ public class Table {
       if (table.size() == 5) {
         // winner selection
         checkWinners(mainPot);
+	incrementStartPlayer();
         setupHand();
         return;
       } else {
-        turnIndex = -1;
-        lastIndex = lastUnfolded(players.size() - 1);
+        turnIndex = wrappedDecrement(startPlayer);
+        lastIndex = lastUnfolded(startPlayer - 1);
         draw();
       }
     }
@@ -308,7 +319,7 @@ public class Table {
 
     do {
       turnIndex = wrappedIncrement(turnIndex);
-    } while ((nextPlayer = players.get(turnIndex)).isFolded());
+    } while ((nextPlayer = players.get(turnIndex)).isNotPlaying());
 
     if (isEveryoneAllin()) {
       callback.updateTable(table, mainPot.getMoney(), null);
@@ -326,7 +337,7 @@ public class Table {
     int allinPlayers = 0;
     for (Player player : players) {
       if (player.isAllIn()) allinPlayers++;
-      if (!player.isFolded()) activePlayers++;
+      if (!player.isNotPlaying()) activePlayers++;
     }
     return activePlayers == allinPlayers;
   }
@@ -487,7 +498,7 @@ public class Table {
     Player last = null;
     int numPlayersLeft = players.size();
     for (Player player : players) {
-      if (player.isFolded())
+      if (player.isNotPlaying())
         numPlayersLeft--;
       else
         last = player;
@@ -500,6 +511,7 @@ public class Table {
       final int totalMoney = mainPot.getTotalMoney();
       callback.declareWinner(last, null, totalMoney);
       last.win(totalMoney);
+      incrementStartPlayer();
       setupHand();
       return true;
     }
@@ -525,7 +537,7 @@ public class Table {
     if (index >= players.size())
       index = 0;
 
-    while (players.get(index).isFolded()) {
+    while (players.get(index).isNotPlaying()) {
       index = wrappedDecrement(index);
     }
     return index;
@@ -705,6 +717,9 @@ public class Table {
       }
   }
 
+  /**
+   * Notify the table that the Player has disconnected from the game.
+   */
   public void playerLeft(Player player) {
     if (!players.contains(player)) return;
 

@@ -46,6 +46,10 @@ public class Player {
 		return uniqueIdentifier;
 	}
 
+	public final boolean isNotPlaying() {
+		return folded || !active;
+	}
+
 	public final int getMoney() {
 		return money;
 	}

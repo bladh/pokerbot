@@ -233,7 +233,6 @@ public class PotTest {
     pot.raise(scrooge, 100);
     pot.call(gearloose);
     pot.call(donald); // 250
-    pot.newTurn();
     final Pot firstSidePot = pot.getSidePot();
     Assert.assertEquals("There should be only 100 in the side pot at this point", 100, firstSidePot.getMoney());
     Assert.assertEquals("Only 250 has been put into the pot at this point", 250, pot.getTotalMoney());
@@ -243,7 +242,7 @@ public class PotTest {
     Assert.assertEquals("Everyone should be in the main pot", everyone, pot.getParticipants());
     Assert.assertEquals("There should only be 150 in the main pot", 150, pot.getMoney());
     Assert.assertEquals("Scrooge and Gearloose should be in the first sidepot", secondPotParticipants, firstSidePot.getParticipants());
-    Assert.assertEquals("There should only be 250 in the first sidepot", 250, firstSidePot.getMoney());
+    Assert.assertEquals("There should only be 300 in the first sidepot", 300, firstSidePot.getMoney());
     final Pot secondSidePot = firstSidePot.getSidePot();
     Assert.assertNotNull("There should be a second side pot", secondSidePot);
     Assert.assertEquals("Scrooge should be alone in the final side pot", thirdPotParticipants, secondSidePot.getParticipants());
@@ -279,5 +278,77 @@ public class PotTest {
     pot.splitPot(expectedList);
     Assert.assertEquals("Player 1 should be back at starting money",200, player1.getMoney());
     Assert.assertEquals("Player 2 should be back at starting money",200, player2.getMoney());
+  }
+
+  @Test
+  public void testBlinds() {
+    final Pot pot = new Pot();
+    final int bigBlind = 5;
+    final int smallBlind = Pot.calculateSmallBlind(bigBlind);
+    player1.setMoney(100);
+    player2.setMoney(100);
+    player3.setMoney(100);
+    pot.collectBigBlind(player1, 5);
+    pot.collectSmallBlind(player2, 5);
+    Assert.assertEquals("Player 1 should have contributed the big blind ", bigBlind, pot.getTotalContribution(player1));
+    Assert.assertEquals("Player 1 should have had the big blind deducted from their funds", 100 - 5, player1.getMoney());
+    Assert.assertEquals("Player 2 should have contributed the small blind ", smallBlind, pot.getTotalContribution(player2));
+    Assert.assertEquals("Player 2 should have the small blind deducted from their funds", 100 - smallBlind, player2.getMoney());
+    Assert.assertEquals("Player 3 should not have contributed anything yet", 0, pot.getTotalContribution(player3));
+    pot.call(player2);
+    Assert.assertEquals("By calling, player 2 should have matched the big blind", bigBlind, pot.getTotalContribution(player2));
+    pot.call(player3);
+    Assert.assertEquals("By calling, player 3 should have matched the big blind", bigBlind, pot.getTotalContribution(player3));
+    final boolean couldCheck = pot.checkPlayer(player1);
+    Assert.assertTrue("Player1 should be able to check", couldCheck);
+  }
+
+  /**
+   * This bug only occurs in the following scenario:
+   * 2 players have money, one player is broke.
+   * One player raises, the broke player calls the raise but can't afford
+   * the whole raise, creating a side pot. The third player, who can afford the
+   * raise but did not yet get a chance to call, calls the raise. Since the pot has no concept
+   * of turn order it has already moved the contributions from the third player (who did not yet call)
+   * into the side pot which causes their contribution in the main pot to be negative, since it assumed
+   * that everyone except the broke player has called.
+   * <p>
+   * See issue 28 for the bug report.
+   * <p>
+   * <a href="https://github.com/bladh/pokerbot/issues/28">Issue 28 on GitHub</a>
+   */
+  @Test
+  public void brokePlayerCallingRaise() {
+    final Pot pot = new Pot();
+    player1.setMoney(220);
+    player2.setMoney(40);
+    player3.setMoney(340);
+    pot.collectBigBlind(player1, 5);
+    pot.collectSmallBlind(player2, 5);
+    pot.call(player2);
+    Assert.assertEquals("There should be 10 in the pot", 10, pot.getMoney());
+    pot.raise(player1, 20);
+    pot.call(player3);
+    Assert.assertEquals("There should be 55 in the pot", 55, pot.getMoney());
+    pot.call(player2);
+    Assert.assertEquals("There should be 75 in the pot", 75, pot.getMoney());
+    pot.call(player2);
+    pot.raise(player1, 10);
+    Assert.assertEquals("There should be 85 in the pot", 85, pot.getMoney());
+    pot.raise(player3, 40);
+    Assert.assertEquals("There should be 135 in the pot", 135, pot.getMoney());
+    Assert.assertEquals("At this point, player 2 should have very little money",15, player2.getMoney());
+    pot.call(player2);
+    Assert.assertEquals("The previous contribution by player 1 should remain in the main pot", 35, pot.getContribution(player1));
+    Assert.assertEquals("There should be no contribution by player 1 in the side pot yet", 0, pot.getSidePot().getContribution(player1));
+    System.out.println(pot);
+    Assert.assertEquals("Player 2 should have spent all their money",0, player2.getMoney());
+    Assert.assertEquals("All of player 2s money should be in the main pot", 40, pot.getTotalContribution(player2));
+    Assert.assertEquals("The total bet in the main pot should match 40", 40, pot.getCurrentBet());
+    pot.call(player1);
+    Assert.assertEquals("At this point, the main pot has matched the minimum bet for everyone", 40*3, pot.getMoney());
+    final int secondPotMoney = pot.getSidePot().getMoney();
+    Assert.assertEquals("The spilled over money should be in the side pot", 70, secondPotMoney);
+    System.out.println(pot);
   }
 }

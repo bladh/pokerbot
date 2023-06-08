@@ -4,6 +4,8 @@ import java.util.*;
 
 public class Pot {
 
+    private static final int MAX_RECURSIONS = 64;
+
     private final Map<Player, Integer> contributions;
     private final boolean isMainPot;
     private Pot sidePot;
@@ -32,7 +34,7 @@ public class Pot {
         }
     }
 
-    private int getContribution(Player player) {
+    public int getContribution(Player player) {
         return contributions.getOrDefault(player, 0);
     }
 
@@ -73,6 +75,12 @@ public class Pot {
         return totalBet - contributions;
     }
 
+    private int getOwed(Player player) {
+        final int bet = getCurrentBet();
+        final int contributions = getContribution(player);
+        return bet - contributions;
+    }
+
     public void newTurn() {
         //currentBet = 0;
         if (sidePot != null) {
@@ -103,14 +111,18 @@ public class Pot {
     }
 
     public int collectBigBlind(Player player, int bigBlind) {
-        raise(player, bigBlind - (int) Math.ceil(((double) bigBlind) / 2));
+        raise(player, bigBlind);
         System.out.println("Collecting big blind (" + bigBlind + ") from " + player);
         return bigBlind;
     }
 
+    static int calculateSmallBlind(int bigBlind) {
+        return (int) Math.ceil(((double) bigBlind) / 2);
+    }
+
     public int collectSmallBlind(Player player, int bigBlind) {
-        final int smallBlind = (int) Math.ceil(((double) bigBlind) / 2);
-        raise(player, smallBlind);
+        final int smallBlind = calculateSmallBlind(bigBlind);
+        addContribution(player, player.bet(smallBlind));
         System.out.println("Collecting small blind (" + smallBlind + ") from " + player);
         return smallBlind;
     }
@@ -182,70 +194,104 @@ public class Pot {
         final int previousContribution = getTotalContribution(player);
         final int owed = getTotalOwed(player);
         final int callAmount = Math.min(owed, player.getMoney());
-        call(player, callAmount);
+        call(player, callAmount, 0);
         if (player.getMoney() == 0) {
             player.setAllIn(true);
         }
         return getTotalContribution(player) - previousContribution;
     }
 
-    private void call(Player player, int amount) {
+    private void call(Player player, int amount, int recursion) {
         final int currentContribution = getContribution(player);
+        if (currentContribution < 0) {
+            throw new IllegalStateException("Current contribution for player '" +
+                    player + "' can't be negative: " + currentContribution + ". From mainPot: " + isMainPot);
+        }
         System.out.println(player + " is putting " + amount + " into pot [ current contribution: " + currentContribution + ", current bet: " + currentBet + "]");
         if (getContribution(player) == currentBet) {
             // Player has already satisfied this pot
             if (sidePot != null) {
                 System.out.println(player + " is channeling " + amount + " into a side pot.");
-                sidePot.call(player, amount);
+                sidePot.call(player, amount, 0);
                 return;
             } else {
                 // This should just be a check.
-                System.err.println(player + " is trying to shove in " + amount + " but this pot is already satisfied and there is no side pot");
+                System.out.println(player + " checks.");
                 if (sidePot != null) {
                     sidePot.checkPlayer(player);
                 }
             }
         }
-        if (amount > currentBet) {
+        final int total = getContribution(player) + amount;
+        if (total > currentBet) {
+            System.out.println("Feeding a sidepot!");
             if (sidePot == null) {
                 throw new IllegalStateException(player + " called in excess and there is no sidepot. (Tried to put " + amount + " into " + currentBet);
             }
             if (getContribution(player) == currentBet) {
                 System.out.println(player + " is funneling " + amount + " into a sidepot");
-                sidePot.call(player, amount);
-                return;
+                sidePot.call(player, amount, 0);
             } else {
                 final int needed = currentBet - getContribution(player);
                 if (needed > 0) {
                     System.err.println("Needed to put " + needed + " in this pot, current bet is " + currentBet);
-                    call(player, needed);
-                    sidePot.call(player, amount - needed);
+                    if (recursion < MAX_RECURSIONS) {
+                        call(player, needed, recursion + 1);
+                    } else {
+                        throw new IllegalStateException("Exceeded max recursion calls");
+                    }
+                    sidePot.call(player, amount - needed, 0);
                 } else {
-                    System.out.println(player + " is shoving " + amount + " into a sidepot");
-                    sidePot.call(player, amount);
+                    System.out.println(player + " is shoving " + amount + " into a sidepot (needed: " + needed + ")");
+                    sidePot.call(player, amount, 0);
                 }
-                return;
             }
+            return;
         }
         final int contribution = player.bet(amount);
         addContribution(player, contribution);
         if (getContribution(player) == currentBet) {
             return;
-        } else if (getContribution(player) < currentBet){
-            final int difference = currentBet - amount;
-            sidePot = new Pot();
-            for (Player callingPlayer : getParticipants()) {
-                if (!callingPlayer.equals(player)) {
-                    addContribution(callingPlayer, -difference);
-                    sidePot.addContribution(callingPlayer, difference);
-                }
-            }
-            sidePot.setBet(difference);
-            System.out.println("A new sidepot was formed: " + sidePot.toString());
-            currentBet -= difference;
+        } else if (getContribution(player) < currentBet) {
+            createSidePot(player);
         } else {
+            final int owed = getOwed(player);
+            System.out.println(player + " owes " + owed + " in this pot, in total owes " + getTotalOwed(player));
             throw new IllegalStateException("This case should have been caught earlier in this method.");
         }
+        final int finalContribution = getContribution(player);
+        if (finalContribution < 0) {
+            throw new IllegalStateException("Impossible that a players contribution is below 0 (final contribution: "
+                    + finalContribution + " for player '" + player + "')");
+        }
+    }
+
+    private void createSidePot(Player creatingPlayer) {
+        System.out.println("Creating a new side pot");
+        final int newBet = getTotalContribution(creatingPlayer);
+        final int difference = currentBet - newBet;
+        sidePot = new Pot(newBet);
+        for (Player participant : getParticipants()) {
+            if (!participant.equals(creatingPlayer)) {
+                final int individualContribution = getContribution(participant);
+                if (individualContribution < newBet) {
+                    // Nothing to move yet
+                    System.out.println(participant + " has only put in " + individualContribution + " so far.");
+                    continue;
+                }
+                final int diff = individualContribution - newBet;
+                if (diff < 0) {
+                    System.out.println("Player " + participant + " has not yet called. Diff: " + diff);
+                    addContribution(participant, diff);
+                    sidePot.addContribution(participant, -diff);
+                } else {
+                    addContribution(participant, -difference);
+                    sidePot.addContribution(participant, difference);
+                }
+            }
+        }
+        sidePot.setBet(difference);
+        currentBet -= difference;
     }
 
     @Override

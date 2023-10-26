@@ -20,5 +20,6 @@ dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.7.7'
     implementation "org.kitteh.irc:client-lib:8.0.0"
+    implementation "com.cosium.matrix_communication_client:matrix-communication-client:1.9"
     implementation group: 'com.moandjiezana.toml', name: 'toml4j', version: '0.7.1'
 }

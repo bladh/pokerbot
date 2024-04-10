@@ -15,9 +15,13 @@ bin/*
 
 .gradle
 /build/
+build/
+build/*
 .idea/
 .idea/*
 /out/
+target/
+target/*
 
 roster.txt
 config.toml

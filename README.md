@@ -14,8 +14,10 @@ Details
 The bot can be launched with the following command from the root directory:
 
 ```
-./gradlew run
+mvn compile exec:java
 ```
+
+If the above command fails, you might need to install [Maven](https://maven.apache.org/).
 
 The bot will join the channel specified in `config.toml`, but supports multiple channels.
 
@@ -78,9 +80,9 @@ Requirements
 ------------
 
 
-- KittehIrc (gradle dependency)
+- KittehIrc (maven dependency)
 - Java 8
-
+- Maven for building the project
 
 Issues
 ------

@@ -1,6 +1,5 @@
 package me.ars.pokerbot.poker;
 
-import me.ars.pokerbot.irc.IrcPlayer;
 import me.ars.pokerbot.stats.Roster;
 import me.ars.pokerbot.config.GameConfig;
 
@@ -8,12 +7,14 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static me.ars.pokerbot.poker.PlayerIdentifier.findState;
+
 public class Table {
   private final StateCallback callback;
-  private final List<Player> players = new ArrayList<>();
+  private final List<PlayerState> players = new ArrayList<>();
   private final Queue<Card> deck = new ArrayDeque<>(52);
   private final List<Card> table = new ArrayList<>(5);
-  private final Queue<Player> buyInPlayers = new ArrayDeque<>();
+  private final Queue<PlayerIdentifier> buyInPlayers = new ArrayDeque<>();
   private final Roster roster;
   private final GameConfig config;
   private final Pot mainPot;
@@ -30,14 +31,20 @@ public class Table {
     this.mainPot = new Pot();
   }
 
-  private boolean verifyCurrentPlayer(Player player) {
+  private boolean verifyCurrentPlayer(PlayerState player) {
     if (player == null) return false;
     return (player.equals(getCurrentPlayer()));
   }
 
-  public Player getCurrentPlayer() {
+
+  private PlayerState getCurrentPlayer() {
     System.out.println("Current turn index: " + turnIndex + " out of " + players.size() + " players. StartPlayer is " + startPlayer + ".");
     return players.get(turnIndex);
+  }
+
+  public PlayerIdentifier getCurrentPlayerId() {
+    System.out.println("Current turn index: " + turnIndex + " out of " + players.size() + " players. StartPlayer is " + startPlayer + ".");
+    return players.get(turnIndex).getIdentifier();
   }
 
   public Calendar getLastActivity() {
@@ -52,8 +59,8 @@ public class Table {
     return gameInProgress;
   }
 
-  public List<Player> getPlayers() {
-    return players;
+  public List<PlayerIdentifier> getPlayers() {
+    return players.stream().map(PlayerState::getIdentifier).collect(Collectors.toList());
   }
 
   public void showCurrent() {
@@ -61,19 +68,20 @@ public class Table {
       callback.announce("Not currently playing.");
       return;
     }
-    final Player currentPlayer = getCurrentPlayer();
-    callback.updateTable(table, mainPot.getMoney(), currentPlayer);
-    callback.announce(currentPlayer.getName() + " has $" + currentPlayer.getMoney());
+    final PlayerState currentPlayer = getCurrentPlayer();
+    callback.updateTable(table, mainPot.getMoney(), currentPlayer.getIdentifier());
+    callback.announce(currentPlayer.getIdentifier().getName() + " has $" + currentPlayer.getMoney());
   }
 
   /**
    * Incoming 'call' from [player]
    */
-  public boolean call(Player player) {
+  public boolean call(PlayerIdentifier playerId) {
+    final PlayerState player = findState(players, playerId);
     if (!verifyCurrentPlayer(player)) return false;
     setActivity();
     final int amount = mainPot.call(player);
-    callback.playerCalled(player, amount);
+    callback.playerCalled(player.getIdentifier(), amount);
     if (isEveryoneAllin()) {
       revealHands(players);
     }
@@ -86,19 +94,21 @@ public class Table {
    *
    * @return True if the player successfully checks.
    */
-  public boolean check(Player player) {
-    if (!verifyCurrentPlayer(player)) return false;
+  public boolean check(PlayerIdentifier playerId) {
+    final PlayerState player = findState(players, playerId);
+    if (player == null || !verifyCurrentPlayer(player)) return false;
     setActivity();
+
 
     final boolean checked = mainPot.checkPlayer(player);
     System.out.println(player + " could check: " + checked);
 
     if (checked) {
-      callback.playerChecked(player);
+      callback.playerChecked(player.getIdentifier());
       nextTurn();
     } else {
       System.err.println(player + " cannot check, they owe " + mainPot.getTotalOwed(player));
-      callback.mustCallRaise(player, mainPot.getTotalOwed(player));
+      callback.mustCallRaise(player.getIdentifier(), mainPot.getTotalOwed(player));
     }
     return checked;
   }
@@ -108,18 +118,19 @@ public class Table {
    *
    * @return True if the raise was successful
    */
-  public boolean raise(Player player, int raise) {
+  public boolean raise(PlayerIdentifier playerId, int raise) {
+    final PlayerState player = findState(players, playerId);
     if (!verifyCurrentPlayer(player)) return false;
     setActivity();
 
     final int result = mainPot.raise(player, raise);
     if (result != -1) {
-      callback.playerRaised(player, result);
+      callback.playerRaised(player.getIdentifier(), result);
       lastIndex = lastUnfolded(turnIndex - 1);
       nextTurn();
       return true;
     } else {
-      callback.playerCannotRaise(player, player.getMoney());
+      callback.playerCannotRaise(player.getIdentifier(), player.getMoney());
       return false;
     }
   }
@@ -127,11 +138,12 @@ public class Table {
   /**
    * Incoming allin from [player]
    */
-  public void allIn(Player player) {
+  public void allIn(PlayerIdentifier playerId) {
+    final PlayerState player = findState(players, playerId);
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
     mainPot.allIn(player);
-    callback.playerAllin(player);
+    callback.playerAllin(player.getIdentifier());
     lastIndex = lastUnfolded(turnIndex - 1);
     if (isEveryoneAllin()) {
       revealHands(players);
@@ -142,45 +154,48 @@ public class Table {
   /**
    * Incoming fold from [player]
    */
-  public void fold(Player player) {
+  public void fold(PlayerIdentifier playerId) {
+    final PlayerState player = findState(players, playerId);
     if (!verifyCurrentPlayer(player)) return;
     setActivity();
     player.fold();
-    callback.playerFolded(player);
+    callback.playerFolded(player.getIdentifier());
     final boolean nextTurn = !checkForWinByFold();
     if (nextTurn) {
       nextTurn();
     }
   }
 
-  public void cashout(Player player) {
+  public void cashout(PlayerIdentifier playerId) {
+    final PlayerState player = findState(players, playerId);
+    if (player == null) return;
     System.out.println("Cashing out " + player);
     setActivity();
     player.cashout();
-    callback.playerCashedOut(player, player.getMoney());
-    roster.modifyMoney(player.getName(), player.getMoney() - config.startStash);
+    callback.playerCashedOut(player.getIdentifier(), player.getMoney());
+    roster.modifyMoney(player.getIdentifier().getName(), player.getMoney() - config.startStash);
     final boolean nextTurn = !checkForWinByFold();
     if (isGameInProgress() && verifyCurrentPlayer(player) && nextTurn) {
       nextTurn();
     }
   }
 
-  public void registerPlayer(Player player) {
+  public void registerPlayer(PlayerIdentifier player) {
     if (gameInProgress) {
       callback.announce("A game is already in progress! Use the buyin command if you still want to join");
       return;
     }
     addPlayer(player, true);
-    player.setMoney(config.startStash);
   }
 
-  private boolean addPlayer(Player newPlayer, boolean verbose) {
-    if (players.contains(newPlayer)) {
+  private boolean addPlayer(PlayerIdentifier newPlayer, boolean verbose) {
+    if (players.stream().anyMatch(p -> p.getIdentifier().equals(newPlayer))) {
       if (verbose) callback.announce(newPlayer.getName() + " has already joined.");
       return false;
     }
-    players.add(newPlayer);
-    newPlayer.setMoney(config.startStash);
+    final PlayerState player = new PlayerState(newPlayer);
+    players.add(player);
+    player.setMoney(config.startStash);
     if (verbose) callback.announce(newPlayer.getName() + " has joined the game.");
     return true;
   }
@@ -192,9 +207,9 @@ public class Table {
   private void deal() {
     final boolean spyCards = config.spyCards != null && config.spyCards;
     final Random random = new Random();
-    Player unlucky = null;
+    PlayerState unlucky = null;
     Card phony = null;
-    for (Player player : players) {
+    for (PlayerState player : players) {
       final Card card1 = deck.poll();
       final Card card2 = deck.poll();
       player.receiveCards(card1, card2);
@@ -204,34 +219,34 @@ public class Table {
       phony = deck.poll();
       unlucky = players.get(random.nextInt(players.size()));
     }
-    for (Player player : players) {
+    for (PlayerState player : players) {
       Card spyCard = null;
       if (spyCards) {
         if (player.equals(unlucky)) {
           spyCard = phony;
         } else {
-          Player randPlayer = player;
+          PlayerState randPlayer = player;
           while (randPlayer.equals(player)) {
             randPlayer = players.get(random.nextInt(players.size()));
           }
           spyCard = pickRandomCard(random, randPlayer.getCard1(), randPlayer.getCard2());
         }
       }
-      callback.showPlayerCards(player, player.getCard1(), player.getCard2(), spyCard);
+      callback.showPlayerCards(player.getIdentifier(), player.getCard1(), player.getCard2(), spyCard);
     }
   }
 
   private void setupHand() {
-    for (Player player : players) {
+    for (PlayerState player : players) {
       player.setAllIn(false);
       if (player.isBroke()) {
         player.cashout();
-        roster.modifyMoney(player.getName(), -config.startStash);
+        roster.modifyMoney(player.getIdentifier().getName(), -config.startStash);
       }
     }
 
     if (!buyInPlayers.isEmpty()) {
-      for (Player newPlayer : buyInPlayers) {
+      for (PlayerIdentifier newPlayer : buyInPlayers) {
         addPlayer(newPlayer, false);
         //roster.trackGame(newPlayer);
       }
@@ -245,10 +260,10 @@ public class Table {
       e.printStackTrace();
     }
 
-    final Iterator<Player> playerIter = players.iterator();
+    final Iterator<PlayerState> playerIter = players.iterator();
 
     while (playerIter.hasNext()) {
-      Player player = playerIter.next();
+      PlayerState player = playerIter.next();
       if (!player.isActive()) {
         playerIter.remove();
       }
@@ -263,7 +278,7 @@ public class Table {
 
     callback.announce("Starting new hand...");
 
-    for (Player player : players) {
+    for (PlayerState player : players) {
       player.newHand();
     }
 
@@ -276,10 +291,10 @@ public class Table {
     lastIndex = lastUnfolded(startPlayer - 1);
     mainPot.reset();
 
-    callback.showPlayers(players.stream().collect(Collectors.toMap((player) -> player, Player::getMoney)));
+    callback.showPlayers(players.stream().collect(Collectors.toMap(PlayerState::getIdentifier, PlayerState::getMoney)));
     deal();
     collectForcedBets();
-    sendStatus(getCurrentPlayer());
+    sendStatus(getCurrentPlayer().getIdentifier());
   }
 
   private void incrementStartPlayer() {
@@ -299,7 +314,7 @@ public class Table {
 
   private void nextTurn() {
     mainPot.newTurn();
-    final Player player = getCurrentPlayer();
+    final PlayerState player = getCurrentPlayer();
     if (isEveryoneAllin() || turnIndex == lastIndex && (player.isFolded() || player.isBroke() || mainPot.playerCleared(player))) {
 
       if (table.size() == 5) {
@@ -315,7 +330,7 @@ public class Table {
       }
     }
 
-    Player nextPlayer;
+    PlayerState nextPlayer;
 
     do {
       turnIndex = wrappedIncrement(turnIndex);
@@ -328,14 +343,14 @@ public class Table {
       callback.announce(nextPlayer.getName() + " is all-in, next player...");
       nextTurn();
     } else {
-      sendStatus(nextPlayer);
+      sendStatus(nextPlayer.getIdentifier());
     }
   }
 
   private boolean isEveryoneAllin() {
     int activePlayers = 0;
     int allinPlayers = 0;
-    for (Player player : players) {
+    for (PlayerState player : players) {
       if (player.isAllIn()) allinPlayers++;
       if (!player.isNotPlaying()) activePlayers++;
     }
@@ -343,9 +358,9 @@ public class Table {
   }
 
   private void checkWinners(Pot pot) {
-    final Set<Player> participants = pot.getParticipants();
+    final Set<PlayerState> participants = pot.getParticipants();
     List<Hand> hands = new ArrayList<>(participants.size());
-    for (Player p : participants) {
+    for (PlayerState p : participants) {
       final Card[] playerCards = table.toArray(new Card[7]);
       playerCards[5] = p.getCard1();
       playerCards[6] = p.getCard2();
@@ -355,7 +370,7 @@ public class Table {
     hands.sort(Collections.reverseOrder());
     Iterator<Hand> orderedHands = hands.iterator();
     Hand winningHand;
-    Player winner1;
+    PlayerState winner1;
 
     do {
       winningHand = orderedHands.next();
@@ -378,10 +393,10 @@ public class Table {
     int numWinners = winners.size();
 
     if (numWinners == 1) {
-      callback.declareWinner(winner1, winningHand, pot.getMoney());
+      callback.declareWinner(winner1.getIdentifier(), winningHand, pot.getMoney());
       winner1.win(pot.getMoney());
     } else {
-      callback.declareSplitPot(winners.stream().map(Hand::getPlayer)
+      callback.declareSplitPot(winners.stream().map(Hand::getPlayer).map(PlayerState::getIdentifier)
               .collect(Collectors.toList()), winningHand.getHandType(), pot.getMoney());
       pot.splitPot(winners.stream().map(Hand::getPlayer).collect(Collectors.toSet()));
     }
@@ -394,21 +409,21 @@ public class Table {
   /**
    * Reveals non-folded hands of the supplied players.
    */
-  private void revealHands(Collection<Player> currentPlayers) {
-    final Map<Player, List<Card>> reveal = new HashMap<>();
-    for (Player p : currentPlayers) {
+  private void revealHands(Collection<PlayerState> currentPlayers) {
+    final Map<PlayerIdentifier, List<Card>> reveal = new HashMap<>();
+    for (PlayerState p : currentPlayers) {
       if (!p.isFolded()) {
         final List<Card> cards = new ArrayList<>();
         cards.add(p.getCard1());
         cards.add(p.getCard2());
-        reveal.put(p, cards);
+        reveal.put(p.getIdentifier(), cards);
       }
     }
 
     callback.revealPlayers(reveal);
   }
 
-  private void sendStatus(Player player) {
+  private void sendStatus(PlayerIdentifier player) {
     callback.updateTable(table, mainPot.getMoney(), player);
     callback.declarePlayerTurn(player);
   }
@@ -417,7 +432,7 @@ public class Table {
     if (config.ante != null && config.ante != 0) {
       callback.collectAnte(config.ante);
 
-      for (Player player : players) {
+      for (PlayerState player : players) {
         mainPot.collectAnte(player, config.ante);
       }
     }
@@ -425,15 +440,15 @@ public class Table {
       final int oldTurnIndex = turnIndex;
       final int oldLastIndex = lastIndex;
       final int blindPlayer = turnIndex;
-      final Player smallBlindPlayer = players.get(turnIndex);
+      final PlayerState smallBlindPlayer = players.get(turnIndex);
       final int smallBlind = mainPot.collectSmallBlind(smallBlindPlayer, config.bigBlind);
       lastIndex = lastUnfolded(turnIndex - 1);
       turnIndex = wrappedIncrement(turnIndex);
-      final Player bigBlindPlayer = players.get(wrappedIncrement(blindPlayer));
+      final PlayerState bigBlindPlayer = players.get(wrappedIncrement(blindPlayer));
       final int bigBlind = mainPot.collectBigBlind(bigBlindPlayer, config.bigBlind);
       lastIndex = lastUnfolded(turnIndex - 1);
       turnIndex = wrappedIncrement(turnIndex);
-      callback.collectBlinds(bigBlindPlayer, bigBlind, smallBlindPlayer, smallBlind);
+      callback.collectBlinds(bigBlindPlayer.getIdentifier(), bigBlind, smallBlindPlayer.getIdentifier(), smallBlind);
       turnIndex = oldTurnIndex;
       lastIndex = oldLastIndex;
     }
@@ -451,10 +466,10 @@ public class Table {
 
   public void startGame() {
     callback.announce("Starting game with: "
-        + players.stream().map(Player::getName)
+        + players.stream().map(PlayerState::getName)
         .collect(Collectors.joining(", ")) + ".");
 
-    for (Player player : players) {
+    for (PlayerState player : players) {
       roster.trackGame(player.getName());
     }
 
@@ -467,11 +482,11 @@ public class Table {
     System.out.println("Stopping game");
     gameInProgress = false;
     if (players.size() == 1) {
-      final Player winner = players.get(0);
+      final PlayerState winner = players.get(0);
       roster.modifyMoney(winner.getName(), winner.getMoney() - config.startStash);
     } else {
       int highscore = 0;
-      for (Player player: players) {
+      for (PlayerState player: players) {
         final int playerMoney = player.getMoney();
         roster.modifyMoney(player.getName(), playerMoney - config.startStash);
         if (playerMoney > highscore) {
@@ -479,12 +494,12 @@ public class Table {
         }
       }
     }
-    final List<Player> oldPlayers = new ArrayList<>(players);
+    final List<PlayerState> oldPlayers = new ArrayList<>(players);
     players.clear();
     deck.clear();
     table.clear();
 
-    callback.gameEnded(oldPlayers);
+    callback.gameEnded(oldPlayers.stream().map(PlayerState::getIdentifier).collect(Collectors.toList()));
 
     try {
       roster.saveRoster();
@@ -495,9 +510,9 @@ public class Table {
   }
 
   private boolean checkForWinByFold() {
-    Player last = null;
+    PlayerState last = null;
     int numPlayersLeft = players.size();
-    for (Player player : players) {
+    for (PlayerState player : players) {
       if (player.isNotPlaying())
         numPlayersLeft--;
       else
@@ -509,7 +524,7 @@ public class Table {
     if (numPlayersLeft == 1) {
       System.out.println("Have a winner: " + last);
       final int totalMoney = mainPot.getTotalMoney();
-      callback.declareWinner(last, null, totalMoney);
+      callback.declareWinner(last.getIdentifier(), null, totalMoney);
       last.win(totalMoney);
       incrementStartPlayer();
       setupHand();
@@ -520,7 +535,7 @@ public class Table {
   }
 
   private void ensureNotAllFolded() {
-    for (Player player : players) {
+    for (PlayerState player : players) {
       if (!player.isFolded())
         return;
     }
@@ -561,36 +576,37 @@ public class Table {
     players.clear();
   }
 
-  public void unjoin(Player player) {
+  public void unjoin(PlayerIdentifier player) {
     if (isGameInProgress()) {
       if (buyInPlayers.contains(player)) {
         callback.announce(player.getName() + ": Your buyin was nulled.");
         buyInPlayers.remove(player);
       } else {
-        if (players.contains(player)) {
+        if (players.stream().anyMatch(p -> p.getIdentifier().equals(player))) {
           callback.announce(player.getName() + ": Cannot unjoin game in progress. Use cashout command.");
         } else {
           callback.announce(player.getName() + ": You are not part of the active game.");
         }
       }
     } else {
-      if (players.contains(player)) {
-        callback.announce(player.getName() + ": You have unjoined.");
-        System.out.println(player.getName() + " unjoined.");
-        players.remove(player);
+      final PlayerState p = findState(players, player);
+      if (p != null && players.contains(p)) {
+        callback.announce(p.getName() + ": You have unjoined.");
+        System.out.println(p.getName() + " unjoined.");
+        players.remove(p);
       } else {
         callback.announce(player.getName() + ": You never joined.");
       }
     }
   }
 
-  public void buyin(Player newPlayer) {
+  public void buyin(PlayerIdentifier newPlayer) {
     if (!gameInProgress) {
       callback.announce(newPlayer.getName() + ": Game hasn't started yet, putting you up for the game");
       registerPlayer(newPlayer);
       return;
     }
-    if (players.contains(newPlayer)) {
+    if (players.stream().anyMatch(p -> p.getIdentifier().equals(newPlayer))) {
         callback.announce(newPlayer.getName() + ": You're already in the game.");
         return;
     }
@@ -720,8 +736,8 @@ public class Table {
   /**
    * Notify the table that the Player has disconnected from the game.
    */
-  public void playerLeft(Player player) {
-    if (!players.contains(player)) return;
+  public void playerLeft(PlayerIdentifier player) {
+    if (players.stream().noneMatch(p -> p.getIdentifier().equals(player))) return;
 
     if (isGameInProgress()) {
       cashout(player);

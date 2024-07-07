@@ -1,8 +1,8 @@
 package me.ars.pokerbot.irc;
 
-import me.ars.pokerbot.poker.Player;
+import me.ars.pokerbot.poker.PlayerIdentifier;
 
-public class IrcPlayer extends Player {
+public class IrcPlayer extends PlayerIdentifier {
 
     private String nick;
     private String login;

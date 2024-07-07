@@ -2,7 +2,7 @@ package me.ars.pokerbot.irc;
 
 import me.ars.pokerbot.poker.Card;
 import me.ars.pokerbot.poker.Hand;
-import me.ars.pokerbot.poker.Player;
+import me.ars.pokerbot.poker.PlayerIdentifier;
 import me.ars.pokerbot.poker.StateCallback;
 
 import java.util.Arrays;
@@ -67,7 +67,7 @@ public class IrcStateCallback implements StateCallback {
         return Formatting.BOLD + color + valueStr + suit + Formatting.CLEAR;
     }
 
-    private String renderNick(Player player) {
+    private String renderNick(PlayerIdentifier player) {
         return Formatting.BOLD + player.getName() + Formatting.CLEAR;
     }
 
@@ -78,17 +78,17 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void playerCalled(Player player, int money) {
+    public void playerCalled(PlayerIdentifier player, int money) {
         ircBot.message(channel, renderNick(player) + " called! (" + moneyString(money) + ")");
     }
 
     @Override
-    public void playerRaised(Player player, int newRaise) {
+    public void playerRaised(PlayerIdentifier player, int newRaise) {
         ircBot.message(channel, renderNick(player) + " raised " + moneyString(newRaise) + ".");
     }
 
     @Override
-    public void playerChecked(Player player) {
+    public void playerChecked(PlayerIdentifier player) {
         // Too verbose. Skip
     }
 
@@ -98,7 +98,7 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void updateTable(List<Card> table, int pot, Player currentPlayer) {
+    public void updateTable(List<Card> table, int pot, PlayerIdentifier currentPlayer) {
         final String tableStr = table.isEmpty() ? "no cards" : table.stream()
                 .map(this::renderCard).collect(Collectors.joining(", "));
         if (currentPlayer == null) {
@@ -110,32 +110,32 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void mustCallRaise(Player player, int amountOwed) {
+    public void mustCallRaise(PlayerIdentifier player, int amountOwed) {
         ircBot.message(channel, renderNick(player) + " must at least call last raise (" + moneyString(amountOwed) + ").");
     }
 
     @Override
-    public void playerCannotRaise(Player player, int money) {
+    public void playerCannotRaise(PlayerIdentifier player, int money) {
         ircBot.message(channel, renderNick(player) + " doesn't have enough money to make the raise. They only have " + moneyString(money) + ".");
     }
 
     @Override
-    public void playerAllin(Player player) {
+    public void playerAllin(PlayerIdentifier player) {
         ircBot.message(channel, renderNick(player) + " goes all in!");
     }
 
     @Override
-    public void playerFolded(Player player) {
+    public void playerFolded(PlayerIdentifier player) {
         // Too verbose. Skip.
     }
 
     @Override
-    public void playerCashedOut(Player player, int money) {
+    public void playerCashedOut(PlayerIdentifier player, int money) {
         ircBot.message(channel, renderNick(player) + " cashed out with " + moneyString(money) + "!");
     }
 
     @Override
-    public void showPlayerCards(Player player, Card card1, Card card2, Card spyCard) {
+    public void showPlayerCards(PlayerIdentifier player, Card card1, Card card2, Card spyCard) {
         final StringBuilder sb = new StringBuilder();
         sb.append("[").append(channel).append("] Your cards: ").append(renderCard(card1)).append(", ").append(renderCard(card2));
         if (spyCard != null) {
@@ -145,14 +145,14 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void showPlayers(Map<Player, Integer> players) {
+    public void showPlayers(Map<PlayerIdentifier, Integer> players) {
         ircBot.message(channel, players.keySet().stream()
                 .map(player -> "[" + renderNick(player) + " - " + moneyString(players.get(player)) + "]")
                 .collect(Collectors.joining(" ")));
     }
 
     @Override
-    public void revealPlayers(Map<Player, List<Card>> reveal) {
+    public void revealPlayers(Map<PlayerIdentifier, List<Card>> reveal) {
         ircBot.message(channel, reveal.keySet().stream()
                 .map(player -> "[" + renderNick(player) + " - " +
                         renderCard(reveal.get(player).get(0)) + ", " +
@@ -161,7 +161,7 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void declareWinner(Player player, Hand winningHand, int pot) {
+    public void declareWinner(PlayerIdentifier player, Hand winningHand, int pot) {
         final StringBuilder sb = new StringBuilder();
         sb.append(renderNick(player)).append(" wins ").append(moneyString(pot));
         if (winningHand != null) {
@@ -172,15 +172,15 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void declareSplitPot(List<Player> winners, Hand.HandType handType, int pot) {
+    public void declareSplitPot(List<PlayerIdentifier> winners, Hand.HandType handType, int pot) {
         ircBot.message(channel,
                 "Split pot between "
-                        + winners.stream().map(Player::getName).collect(Collectors.joining(", "))
+                        + winners.stream().map(PlayerIdentifier::getName).collect(Collectors.joining(", "))
                         + " (each with a " + handType + ").");
     }
 
     @Override
-    public void declarePlayerTurn(Player player) {
+    public void declarePlayerTurn(PlayerIdentifier player) {
         ircBot.message(channel, renderNick(player) + "'s turn!");
     }
 
@@ -190,12 +190,12 @@ public class IrcStateCallback implements StateCallback {
     }
 
     @Override
-    public void collectBlinds(Player bigBlindPlayer, int bigBlind, Player smallBlindPlayer, int smallBlind) {
+    public void collectBlinds(PlayerIdentifier bigBlindPlayer, int bigBlind, PlayerIdentifier smallBlindPlayer, int smallBlind) {
         ircBot.message(channel, "Collecting blinds (" + moneyString(bigBlind) + " from " + renderNick(bigBlindPlayer) + ", " + moneyString(smallBlind) + " from " + renderNick(smallBlindPlayer) + ")");
     }
 
     @Override
-    public void gameEnded(List<Player> oldPlayers) {
+    public void gameEnded(List<PlayerIdentifier> oldPlayers) {
         ircBot.gameEnded(oldPlayers);
     }
 }

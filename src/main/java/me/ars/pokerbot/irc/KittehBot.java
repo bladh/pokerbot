@@ -2,7 +2,7 @@ package me.ars.pokerbot.irc;
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import me.ars.pokerbot.config.BotConfig;
-import me.ars.pokerbot.poker.Player;
+import me.ars.pokerbot.poker.PlayerIdentifier;
 import me.ars.pokerbot.poker.Table;
 import me.ars.pokerbot.stats.Roster;
 import me.ars.pokerbot.stats.Stats;
@@ -194,7 +194,7 @@ public class KittehBot implements Irc {
                 break;
             }
             case "players": {
-                final Collection<Player> players = table.getPlayers();
+                final Collection<PlayerIdentifier> players = table.getPlayers();
                 if (players.isEmpty()) {
                     message(channel, "No joined players.");
                     break;
@@ -204,13 +204,13 @@ public class KittehBot implements Irc {
                     message(
                             channel,
                             "Now playing: "
-                                    + players.stream().map(p -> p.getName() + " $" + p.getMoney())
+                                    + players.stream().map(PlayerIdentifier::getName)
                                     .collect(Collectors.joining(", ")) + ".");
                 } else {
                     message(
                             channel,
                             "Joined players: "
-                                    + players.stream().map(Player::getName)
+                                    + players.stream().map(PlayerIdentifier::getName)
                                     .collect(Collectors.joining(", ")) + ".");
                 }
                 break;
@@ -258,7 +258,7 @@ public class KittehBot implements Irc {
                 if (!table.isGameInProgress()) {
                     break;
                 }
-                final List<Player> oldPlayers = table.getPlayers();
+                final List<PlayerIdentifier> oldPlayers = table.getPlayers();
                 table.stopGame();
                 for (Table otherTable: tables.values()) {
                     oldPlayers.removeAll(otherTable.getPlayers());
@@ -408,7 +408,7 @@ public class KittehBot implements Irc {
     }
 
     @Override
-    public void message(Player player, String message) {
+    public void message(PlayerIdentifier player, String message) {
         if (ircClient == null) {
             logError("Bot not yet connected to irc.");
             return;
@@ -439,7 +439,7 @@ public class KittehBot implements Irc {
     }
 
     @Override
-    public void gameEnded(List<Player> oldPlayers) {
+    public void gameEnded(List<PlayerIdentifier> oldPlayers) {
         for (Table otherTable: tables.values()) {
             oldPlayers.removeAll(otherTable.getPlayers());
         }

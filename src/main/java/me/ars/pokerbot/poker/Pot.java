@@ -2,16 +2,16 @@ package me.ars.pokerbot.poker;
 
 import java.util.*;
 
-public class Pot {
+class Pot {
 
     private static final int MAX_RECURSIONS = 64;
 
-    private final Map<Player, Integer> contributions;
+    private final Map<PlayerState, Integer> contributions;
     private final boolean isMainPot;
     private Pot sidePot;
     private int currentBet;
 
-    public Pot() {
+    Pot() {
         contributions = new HashMap<>();
         currentBet = 0;
         sidePot = null;
@@ -25,7 +25,7 @@ public class Pot {
         this.isMainPot = false;
     }
 
-    private void addContribution(Player player, int money) {
+    private void addContribution(PlayerState player, int money) {
         if (!contributions.containsKey(player)) {
             contributions.put(player, money);
         } else {
@@ -34,7 +34,7 @@ public class Pot {
         }
     }
 
-    public int getContribution(Player player) {
+    public int getContribution(PlayerState player) {
         return contributions.getOrDefault(player, 0);
     }
 
@@ -58,7 +58,7 @@ public class Pot {
         return bet;
     }
 
-    public int getTotalContribution(Player player) {
+    public int getTotalContribution(PlayerState player) {
         int contribution = 0;
         if (contributions.containsKey(player)) {
             contribution += contributions.get(player);
@@ -69,13 +69,13 @@ public class Pot {
         return contribution;
     }
 
-    public int getTotalOwed(Player player) {
+    public int getTotalOwed(PlayerState player) {
         final int totalBet = getTotalBets();
         final int contributions = getTotalContribution(player);
         return totalBet - contributions;
     }
 
-    private int getOwed(Player player) {
+    private int getOwed(PlayerState player) {
         final int bet = getCurrentBet();
         final int contributions = getContribution(player);
         return bet - contributions;
@@ -88,7 +88,7 @@ public class Pot {
         }
     }
 
-    public boolean checkPlayer(Player player) {
+    public boolean checkPlayer(PlayerState player) {
         if (player.isAllIn()) {
             return true;
         }
@@ -104,13 +104,13 @@ public class Pot {
         sidePot = null;
     }
 
-    public void collectAnte(Player player, int ante) {
+    public void collectAnte(PlayerState player, int ante) {
         currentBet = ante;
         addContribution(player, player.bet(ante));
         System.out.println("Collecting ante from " + player + ", total paid: " + getTotalContribution(player));
     }
 
-    public int collectBigBlind(Player player, int bigBlind) {
+    public int collectBigBlind(PlayerState player, int bigBlind) {
         raise(player, bigBlind);
         System.out.println("Collecting big blind (" + bigBlind + ") from " + player);
         return bigBlind;
@@ -120,20 +120,20 @@ public class Pot {
         return (int) Math.ceil(((double) bigBlind) / 2);
     }
 
-    public int collectSmallBlind(Player player, int bigBlind) {
+    public int collectSmallBlind(PlayerState player, int bigBlind) {
         final int smallBlind = calculateSmallBlind(bigBlind);
         addContribution(player, player.bet(smallBlind));
         System.out.println("Collecting small blind (" + smallBlind + ") from " + player);
         return smallBlind;
     }
 
-    public Set<Player> getParticipants() {
+    public Set<PlayerState> getParticipants() {
         return contributions.keySet();
     }
 
     public int getMoney() {
         int cash = 0;
-        for(Player player: contributions.keySet()) {
+        for(PlayerState player: contributions.keySet()) {
             cash += contributions.get(player);
         }
         return cash;
@@ -155,7 +155,7 @@ public class Pot {
         return sidePot;
     }
 
-    public int raise(Player player, int amount) {
+    public int raise(PlayerState player, int amount) {
         final int totalRaised;
         final int owed;
 
@@ -185,12 +185,12 @@ public class Pot {
         return totalRaised-owed;
     }
 
-    public void allIn(Player player) {
+    public void allIn(PlayerState player) {
         player.setAllIn(true);
         raise(player, player.getMoney());
     }
 
-    public int call(Player player) {
+    public int call(PlayerState player) {
         final int previousContribution = getTotalContribution(player);
         final int owed = getTotalOwed(player);
         final int callAmount = Math.min(owed, player.getMoney());
@@ -201,7 +201,7 @@ public class Pot {
         return getTotalContribution(player) - previousContribution;
     }
 
-    private void call(Player player, int amount, int recursion) {
+    private void call(PlayerState player, int amount, int recursion) {
         final int currentContribution = getContribution(player);
         if (currentContribution < 0) {
             throw new IllegalStateException("Current contribution for player '" +
@@ -266,12 +266,12 @@ public class Pot {
         }
     }
 
-    private void createSidePot(Player creatingPlayer) {
+    private void createSidePot(PlayerState creatingPlayer) {
         System.out.println("Creating a new side pot");
         final int newBet = getTotalContribution(creatingPlayer);
         final int difference = currentBet - newBet;
         sidePot = new Pot(newBet);
-        for (Player participant : getParticipants()) {
+        for (PlayerState participant : getParticipants()) {
             if (!participant.equals(creatingPlayer)) {
                 final int individualContribution = getContribution(participant);
                 if (individualContribution < newBet) {
@@ -307,9 +307,9 @@ public class Pot {
     /**
      * Split up the winnings of this pot to multiple players
      */
-    public void splitPot(Set<Player> winners) {
+    public void splitPot(Set<PlayerState> winners) {
         int winnings = getMoney() / winners.size();
-        for(Player winner: winners) {
+        for(PlayerState winner: winners) {
             winner.win(winnings);
         }
     }
@@ -317,7 +317,7 @@ public class Pot {
     /**
      * Returns true if the player does not owe anything to the pot.
      */
-    public boolean playerCleared(Player player) {
+    public boolean playerCleared(PlayerState player) {
         return getTotalOwed(player) == 0;
     }
 }

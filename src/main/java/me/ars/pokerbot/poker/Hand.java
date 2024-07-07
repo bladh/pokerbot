@@ -54,7 +54,7 @@ public class Hand implements Comparable<Hand> {
 	/*
 	 * the player with the hand
 	 */
-	private final Player player;
+	private final PlayerState player;
 
 	/*
 	 * the type of hand
@@ -66,8 +66,8 @@ public class Hand implements Comparable<Hand> {
 	 */
 	private final Card[] bestHand;
 
-	private Hand(final Player player, final HandType type,
-			final Card... bestHand) {
+	private Hand(final PlayerState player, final HandType type,
+                 final Card... bestHand) {
 		if (bestHand.length != 5) {
 			throw new IllegalArgumentException("Invalid hand size: " + bestHand.length);
 		}
@@ -77,12 +77,12 @@ public class Hand implements Comparable<Hand> {
 		this.bestHand = bestHand;
 	}
 
-	Hand(final Player player, final HandType type,
-			final List<Card> bestHandList) {
+	Hand(final PlayerState player, final HandType type,
+         final List<Card> bestHandList) {
 		this(player, type, bestHandList.toArray(new Card[bestHandList.size()]));
 	}
 
-	public Player getPlayer() {
+	PlayerState getPlayer() {
 		return player;
 	}
 
@@ -113,7 +113,7 @@ public class Hand implements Comparable<Hand> {
 	/*
 	 * @param cards the 7 cards to be analyzed
 	 */
-	public static Hand getBestHand(Player player, Card... cards) {
+	static Hand getBestHand(PlayerState player, Card... cards) {
 		final Hand hand1 = bestHand(player, cards);
 		if (containsValue(cards, 14)) {
 			try {
@@ -132,7 +132,7 @@ public class Hand implements Comparable<Hand> {
 		return hand1;
 	}
 
-	private static Hand bestHand(Player player, Card... cards) {
+	private static Hand bestHand(PlayerState player, Card... cards) {
 		Arrays.sort(cards);
 
 		int[] suitFreqs = new int[4];

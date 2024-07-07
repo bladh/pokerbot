@@ -10,7 +10,7 @@ public interface StateCallback {
      * @param player  Player who called
      * @param money   Amount called
      */
-    void playerCalled(Player player, int money);
+    void playerCalled(PlayerIdentifier player, int money);
 
     /**
      * A player has raised a bet.
@@ -18,14 +18,14 @@ public interface StateCallback {
      * @param player   Player who raised
      * @param newRaise Amount that was raised
      */
-    void playerRaised(Player player, int newRaise);
+    void playerRaised(PlayerIdentifier player, int newRaise);
 
     /**
      * A player has checked.
      *
      * @param player Checking player
      */
-    void playerChecked(Player player);
+    void playerChecked(PlayerIdentifier player);
 
     /**
      * Announce a message to all players.
@@ -41,7 +41,7 @@ public interface StateCallback {
      * @param pot           Current pot on the table
      * @param currentPlayer Current players turn
      */
-    void updateTable(List<Card> table, int pot, Player currentPlayer);
+    void updateTable(List<Card> table, int pot, PlayerIdentifier currentPlayer);
 
     /**
      * Notify that a player must call a raise.
@@ -49,7 +49,7 @@ public interface StateCallback {
      * @param player     Player who needs to call
      * @param amountOwed Amount of money needed to call
      */
-    void mustCallRaise(Player player, int amountOwed);
+    void mustCallRaise(PlayerIdentifier player, int amountOwed);
 
     /**
      * Announce that a player could not raise the specified bet.
@@ -57,21 +57,21 @@ public interface StateCallback {
      * @param player Player who tried to bet
      * @param money  Amount of money they actually had
      */
-    void playerCannotRaise(Player player, int money);
+    void playerCannotRaise(PlayerIdentifier player, int money);
 
     /**
      * A player has gone all in.
      *
      * @param player Player who went all in.
      */
-    void playerAllin(Player player);
+    void playerAllin(PlayerIdentifier player);
 
     /**
      * A player has folded.
      *
      * @param player Folding player
      */
-    void playerFolded(Player player);
+    void playerFolded(PlayerIdentifier player);
 
     /**
      * A player cashed out and left the table.
@@ -79,7 +79,7 @@ public interface StateCallback {
      * @param player Cashing out player
      * @param money Amount of money they walked away with
      */
-    void playerCashedOut(Player player, int money);
+    void playerCashedOut(PlayerIdentifier player, int money);
 
     /**
      * Show the player the two cards they were dealt.
@@ -89,21 +89,21 @@ public interface StateCallback {
      * @param card2 Second card
      * @param spycard If playing with spycards
      */
-    void showPlayerCards(Player player, Card card1, Card card2, Card spycard);
+    void showPlayerCards(PlayerIdentifier player, Card card1, Card card2, Card spycard);
 
     /**
      * Display the currently playing players and the money they have
      *
      * @param players Map of players to how much money they have
      */
-    void showPlayers(Map<Player, Integer> players);
+    void showPlayers(Map<PlayerIdentifier, Integer> players);
 
     /**
      * Reveals the hands of the supplied players.
      *
      * @param reveal Players mapped to their own cards
      */
-    void revealPlayers(Map<Player, List<Card>> reveal);
+    void revealPlayers(Map<PlayerIdentifier, List<Card>> reveal);
 
     /**
      * Declare that a player has won the pot
@@ -112,7 +112,7 @@ public interface StateCallback {
      * @param winningHand Their winning hand
      * @param pot         Money they've won from the pot
      */
-    void declareWinner(Player winner, Hand winningHand, int pot);
+    void declareWinner(PlayerIdentifier winner, Hand winningHand, int pot);
 
     /**
      * Declare that there are multiple winners splitting the pot
@@ -121,14 +121,14 @@ public interface StateCallback {
      * @param handType The hand type they had in common
      * @param pot      The pot they are splitting
      */
-    void declareSplitPot(List<Player> winners, Hand.HandType handType, int pot);
+    void declareSplitPot(List<PlayerIdentifier> winners, Hand.HandType handType, int pot);
 
     /**
      * Declares who's turn it is.
      *
      * @param player Current player
      */
-    void declarePlayerTurn(Player player);
+    void declarePlayerTurn(PlayerIdentifier player);
 
     /**
      * Declare that ante is being collected
@@ -145,12 +145,12 @@ public interface StateCallback {
      * @param smallBlindPlayer The player that pays the small blind
      * @param smallBlind       How big the small blind is
      */
-    void collectBlinds(Player bigBlindPlayer, int bigBlind, Player smallBlindPlayer, int smallBlind);
+    void collectBlinds(PlayerIdentifier bigBlindPlayer, int bigBlind, PlayerIdentifier smallBlindPlayer, int smallBlind);
 
     /**
      * Declare that the game has ended.
      *
      * @param oldPlayers Players that have left the ended game
      */
-    void gameEnded(List<Player> oldPlayers);
+    void gameEnded(List<PlayerIdentifier> oldPlayers);
 }
